@@ -1,0 +1,46 @@
+{
+  "name": "@company/claude-code-setting",
+  "version": "0.1.0",
+  "description": "Company-wide Claude Code harness: shared rules, spec workflow, subagents, skills, and settings.",
+  "type": "module",
+  "bin": {
+    "company-cc": "src/cli.js"
+  },
+  "files": [
+    "src",
+    "templates",
+    "docs",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "lint": "eslint src",
+    "test": "node --test test"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "dependencies": {
+    "picocolors": "^1.1.1",
+    "prompts": "^2.4.2"
+  },
+  "peerDependencies": {
+    "@fission-ai/openspec": ">=0.5.0"
+  },
+  "peerDependenciesMeta": {
+    "@fission-ai/openspec": {
+      "optional": true
+    }
+  },
+  "keywords": [
+    "claude-code",
+    "harness",
+    "spec-driven",
+    "ai-coding",
+    "skills"
+  ],
+  "license": "MIT",
+  "publishConfig": {
+    "access": "restricted"
+  }
+}
