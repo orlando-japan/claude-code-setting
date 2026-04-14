@@ -15,6 +15,14 @@ Still intentionally lightweight:
 - OpenSpec remains an optional peer dependency
 - release verification is based on repo tests plus `npm pack --dry-run`, not a custom publish script
 
+## Recommended installation path
+
+- **If you are actively building this repo on your own machine**: use `npm link`
+- **If you want a teammate to try it before formal publishing**: use a local tarball or a private npm registry
+- **If you want repeatable internal team distribution**: publish to your private npm registry and install from there
+
+In other words: local development first, private distribution second, public npm only if you actually need it.
+
 ## Install
 
 ### Option A — install from npm / private npm
