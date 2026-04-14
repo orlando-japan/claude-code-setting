@@ -12,8 +12,8 @@ Current repo status:
 
 Still intentionally lightweight:
 - no bundled build step
-- no end-to-end install test in CI yet
 - OpenSpec remains an optional peer dependency
+- release verification is based on repo tests plus `npm pack --dry-run`, not a custom publish script
 
 ## Install
 
@@ -45,7 +45,8 @@ company-cc update
 # Force overwrite of files you've locally modified
 company-cc update --force
 
-# Verify install, permissions, and OpenSpec availability
+# Verify install state. Doctor now separates fatal issues,
+# optional integrations, and "not initialized yet" guidance.
 company-cc doctor
 ```
 
@@ -70,9 +71,15 @@ pass `--force`. New template files are always added.
 npm test
 node src/cli.js --help
 node src/cli.js doctor
-node src/cli.js init --project --dry-run
-node src/cli.js init --user --dry-run
+TMP_HOME="$(mktemp -d)"
+HOME="$TMP_HOME" node src/cli.js init --user
+HOME="$TMP_HOME" node src/cli.js update
+rm -rf "$TMP_HOME"
 ```
+
+Notes:
+- `doctor` is intentionally calm before first install: missing optional tooling or a missing `~/.claude/` manifest shows as guidance, not a fatal failure.
+- The isolated `HOME` flow above is the real install/update smoke path; use it when changing installer behavior.
 
 ### Repo layout
 
@@ -88,10 +95,11 @@ test/                minimal smoke and template safety tests
 Before calling this repo “ready for release”, verify:
 - `npm test` passes
 - `node src/cli.js --help` prints usage
-- `node src/cli.js init --user --dry-run` behaves correctly
-- `node src/cli.js init --project --dry-run` behaves correctly
+- isolated real install/update smoke passes with a temporary `HOME`
+- `npm pack --dry-run` includes only the intended publish payload
 - `.claude/settings.local.json` is not committed
 - package version is bumped intentionally
+- `package.json` metadata (`repository`, `homepage`, `bugs`, `bin`, `files`) still matches reality
 - README and template docs reflect the actual shipped behavior
 
 ## Upgrading

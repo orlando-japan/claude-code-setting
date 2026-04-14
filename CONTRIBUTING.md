@@ -21,8 +21,8 @@ Examples:
 When changing installer logic:
 - run `npm test`
 - run `node src/cli.js --help`
-- run `node src/cli.js init --user --dry-run`
-- run `node src/cli.js init --project --dry-run`
+- run at least one real isolated install with a temporary `HOME`
+- run `HOME="$TMP_HOME" node src/cli.js update` against that isolated install
 
 ### 2. Templates
 Examples:
@@ -61,6 +61,9 @@ Bump the package version intentionally when user-facing behavior changes, especi
 ## Pull request checklist
 
 - [ ] `npm test` passes
+- [ ] `node src/cli.js --help` still works
+- [ ] real isolated install/update smoke was run when installer behavior changed
+- [ ] `npm pack --dry-run` was checked before publishing or release tagging
 - [ ] local-only files are not included
 - [ ] README/docs were updated if needed
 - [ ] change scope is clear and minimal

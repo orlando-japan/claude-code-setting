@@ -24,6 +24,11 @@
 
 The two profiles are independent: you can run `init --user` once globally and `init --project` per repo, or only one of them. `update` discovers whichever manifests exist.
 
+`doctor` treats these states differently on purpose:
+- **fatal**: broken required install state (for example invalid `settings.json` after a manifest exists)
+- **not initialized**: no user manifest yet; shown as guidance instead of a hard failure
+- **optional missing**: integrations like OpenSpec are absent, but the harness itself is still healthy
+
 ## Layered harness
 
 Adapted from the Karpathy "skills" pattern and shanraisshan's harness layout:

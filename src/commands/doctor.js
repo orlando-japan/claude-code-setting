@@ -6,6 +6,7 @@ import { execSync } from 'node:child_process';
 import { log } from '../lib/log.js';
 
 const USER_CLAUDE_DIR = join(homedir(), '.claude');
+const USER_MANIFEST = join(USER_CLAUDE_DIR, '.company-cc-manifest.json');
 
 const REQUIRED_USER_FILES = [
   'CLAUDE.md',
@@ -14,71 +15,103 @@ const REQUIRED_USER_FILES = [
 ];
 
 export async function doctor() {
-  let failed = 0;
-  const check = async (name, fn) => {
-    try {
-      const msg = await fn();
-      if (msg === false) {
-        log.error(name);
-        failed++;
-      } else {
-        log.ok(`${name}${msg ? ` — ${msg}` : ''}`);
-      }
-    } catch (err) {
-      log.error(`${name} — ${err.message}`);
-      failed++;
-    }
+  const summary = {
+    fatal: 0,
+    optional: 0,
+    uninitialized: 0,
+  };
+
+  const ok = (name, details) => log.ok(`${name}${details ? ` — ${details}` : ''}`);
+  const fatal = (name, details) => {
+    log.error(`${name}${details ? ` — ${details}` : ''}`);
+    summary.fatal++;
+  };
+  const optional = (name, details) => {
+    log.warn(`${name}${details ? ` — ${details}` : ''}`);
+    summary.optional++;
+  };
+  const uninitialized = (name, details) => {
+    log.warn(`${name}${details ? ` — ${details}` : ''}`);
+    summary.uninitialized++;
   };
 
   log.step('Environment');
-  await check('node >= 20', () => {
+  try {
     const [maj] = process.versions.node.split('.').map(Number);
-    if (maj < 20) throw new Error(`found ${process.versions.node}`);
-    return process.versions.node;
-  });
-
-  log.step('User profile');
-  await check('~/.claude/ exists', () => {
-    if (!existsSync(USER_CLAUDE_DIR)) throw new Error(USER_CLAUDE_DIR);
-    return USER_CLAUDE_DIR;
-  });
-
-  await check('manifest present', () => {
-    const p = join(USER_CLAUDE_DIR, '.company-cc-manifest.json');
-    if (!existsSync(p)) throw new Error('run `company-cc init --user`');
-    return 'ok';
-  });
-
-  for (const rel of REQUIRED_USER_FILES) {
-    await check(`user/${rel}`, () => {
-      if (!existsSync(join(USER_CLAUDE_DIR, rel))) throw new Error('missing');
-      return 'present';
-    });
+    if (maj < 20) {
+      fatal('node >= 20', `found ${process.versions.node}`);
+    } else {
+      ok('node >= 20', process.versions.node);
+    }
+  } catch (err) {
+    fatal('node >= 20', err.message);
   }
 
-  await check('settings.json is valid JSON', async () => {
-    const p = join(USER_CLAUDE_DIR, 'settings.json');
-    if (!existsSync(p)) throw new Error('missing');
-    JSON.parse(await readFile(p, 'utf8'));
-    return 'parsed';
-  });
+  log.step('User profile');
+  const userDirExists = existsSync(USER_CLAUDE_DIR);
+  const manifestExists = existsSync(USER_MANIFEST);
+
+  if (!userDirExists) {
+    uninitialized('user profile', `not initialized yet — run \`company-cc init --user\` to create ${USER_CLAUDE_DIR}`);
+  } else if (!manifestExists) {
+    uninitialized('user profile manifest', 'missing — run `company-cc init --user`');
+  } else {
+    ok('user profile', USER_CLAUDE_DIR);
+    ok('manifest present', USER_MANIFEST);
+
+    for (const rel of REQUIRED_USER_FILES) {
+      const fullPath = join(USER_CLAUDE_DIR, rel);
+      if (!existsSync(fullPath)) {
+        fatal(`user/${rel}`, 'missing');
+      } else {
+        ok(`user/${rel}`, 'present');
+      }
+    }
+
+    const settingsPath = join(USER_CLAUDE_DIR, 'settings.json');
+    if (!existsSync(settingsPath)) {
+      fatal('settings.json is valid JSON', 'missing');
+    } else {
+      try {
+        JSON.parse(await readFile(settingsPath, 'utf8'));
+        ok('settings.json is valid JSON', 'parsed');
+      } catch (err) {
+        fatal('settings.json is valid JSON', err.message);
+      }
+    }
+  }
 
   log.step('Optional integrations');
-  await check('OpenSpec CLI', () => {
-    try {
-      const v = execSync('openspec --version', { stdio: ['ignore', 'pipe', 'ignore'] })
-        .toString()
-        .trim();
-      return v;
-    } catch {
-      throw new Error('not installed (optional) — `npm i -g @fission-ai/openspec`');
-    }
-  });
+  try {
+    const version = execSync('openspec --version', { stdio: ['ignore', 'pipe', 'ignore'] })
+      .toString()
+      .trim();
+    ok('OpenSpec CLI', version);
+  } catch {
+    optional('OpenSpec CLI', 'not installed — optional, install with `npm i -g @fission-ai/openspec` if you want spec commands');
+  }
 
   log.step('Summary');
-  if (failed === 0) log.ok('all checks passed');
-  else {
-    log.error(`${failed} check(s) failed`);
+  if (summary.fatal > 0) {
+    log.error(`${summary.fatal} fatal issue(s) found`);
+    if (summary.uninitialized > 0) {
+      log.warn(`${summary.uninitialized} setup area(s) not initialized`);
+    }
+    if (summary.optional > 0) {
+      log.warn(`${summary.optional} optional integration(s) missing`);
+    }
     process.exit(1);
+  }
+
+  if (summary.uninitialized > 0) {
+    log.warn(`not fully initialized yet — ${summary.uninitialized} setup area(s) still need \`company-cc init\``);
+  } else {
+    log.ok('core install checks passed');
+  }
+
+  if (summary.optional > 0) {
+    log.warn(`${summary.optional} optional integration(s) missing`);
+  } else {
+    log.ok('optional integrations look good');
   }
 }

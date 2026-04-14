@@ -39,9 +39,19 @@
     "harness",
     "spec-driven",
     "ai-coding",
-    "skills"
+    "skills",
+    "developer-tooling",
+    "npm-cli"
   ],
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/orlando-japan/claude-code-setting.git"
+  },
+  "homepage": "https://github.com/orlando-japan/claude-code-setting#readme",
+  "bugs": {
+    "url": "https://github.com/orlando-japan/claude-code-setting/issues"
+  },
   "publishConfig": {
     "access": "restricted"
   }
