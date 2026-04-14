@@ -1,6 +1,6 @@
 {
   "name": "@company/claude-code-setting",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Company-wide Claude Code harness: shared rules, spec workflow, subagents, skills, and settings.",
   "type": "module",
   "bin": {
@@ -15,7 +15,9 @@
   ],
   "scripts": {
     "lint": "eslint src",
-    "test": "node --test test"
+    "test": "node --test",
+    "test:smoke": "node --test test/cli.test.js",
+    "test:templates": "node --test test/template.test.js"
   },
   "engines": {
     "node": ">=20.0.0"

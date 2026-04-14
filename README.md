@@ -2,15 +2,28 @@
 
 Company-wide Claude Code harness. One install gives every engineer a consistent setup: shared coding rules, spec-driven workflow, curated skills, subagents, and safe permissions.
 
+## Status
+
+Current repo status:
+- CLI entrypoint is runnable
+- template installer / updater / doctor flows are wired
+- minimal automated tests are present
+- packaging is suitable for a private npm/internal distribution flow
+
+Still intentionally lightweight:
+- no bundled build step
+- no end-to-end install test in CI yet
+- OpenSpec remains an optional peer dependency
+
 ## Install
 
 ```bash
 npm i -g @company/claude-code-setting
-# (optional, for spec workflow)
+# optional, for spec workflow
 npm i -g @fission-ai/openspec
 ```
 
-## Use
+## Quick start
 
 ```bash
 # Default: install both user (~/.claude/) and project (./.claude/, ./CLAUDE.md)
@@ -51,6 +64,36 @@ pass `--force`. New template files are always added.
 | **Harness** (`settings.json`) | Wildcard permissions, PreToolUse guards on Bash/Edit, default model strategy, MCP stub |
 | **Hooks** (`hooks/`) | `guard-bash.sh` blocks destructive commands; `guard-edit.sh` blocks writes to secrets/keys/`.git` |
 
+## Development
+
+```bash
+npm test
+node src/cli.js --help
+node src/cli.js doctor
+node src/cli.js init --project --dry-run
+node src/cli.js init --user --dry-run
+```
+
+### Repo layout
+
+```text
+src/                 CLI entrypoint + install/update/doctor logic
+templates/           shipped harness templates
+docs/                architecture + authoring guidance
+test/                minimal smoke and template safety tests
+```
+
+## Release / publish checklist
+
+Before calling this repo “ready for release”, verify:
+- `npm test` passes
+- `node src/cli.js --help` prints usage
+- `node src/cli.js init --user --dry-run` behaves correctly
+- `node src/cli.js init --project --dry-run` behaves correctly
+- `.claude/settings.local.json` is not committed
+- package version is bumped intentionally
+- README and template docs reflect the actual shipped behavior
+
 ## Upgrading
 
 ```bash
@@ -69,6 +112,7 @@ Update walks each manifest, hashes every tracked file, and:
 - [Architecture](docs/architecture.md)
 - [Authoring rules](docs/authoring-rules.md)
 - [Authoring skills](docs/authoring-skills.md)
+- [Contributing](CONTRIBUTING.md)
 
 ## License
 
