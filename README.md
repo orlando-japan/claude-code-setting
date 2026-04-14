@@ -17,10 +17,59 @@ Still intentionally lightweight:
 
 ## Install
 
+### Option A — install from npm / private npm
+
 ```bash
 npm i -g @company/claude-code-setting
 # optional, for spec workflow
 npm i -g @fission-ai/openspec
+```
+
+### Option B — download the repo locally, then install from your local files
+
+If you are not publishing to the public npm registry yet, local install is completely fine.
+
+#### B1. Fast local development mode (`npm link`)
+
+Best when you are actively editing this repo and want the command available immediately.
+
+```bash
+git clone https://github.com/orlando-japan/claude-code-setting.git
+cd claude-code-setting
+npm install
+npm link
+
+# now the command is available globally
+company-cc --help
+```
+
+#### B2. Install from a packed local tarball
+
+Best when you want to simulate a real package install without publishing.
+
+```bash
+git clone https://github.com/orlando-japan/claude-code-setting.git
+cd claude-code-setting
+npm install
+npm pack
+npm i -g ./company-cc-*.tgz
+
+# verify
+company-cc --help
+```
+
+#### B3. Install from a local / private npm registry
+
+If your team already has Verdaccio, GitHub Packages, or another internal npm registry, this package is suitable for that workflow too.
+
+Typical flow:
+
+```bash
+# publish to your internal registry first
+npm publish --registry <your-private-registry>
+
+# then install from that registry
+npm i -g @company/claude-code-setting --registry <your-private-registry>
 ```
 
 ## Quick start
@@ -90,6 +139,17 @@ docs/                architecture + authoring guidance
 test/                minimal smoke and template safety tests
 ```
 
+## Design philosophy
+
+This repo is designed as a **company-wide Claude Code harness skeleton**, not as a fully opinionated monolith and not as a fake "complete project handbook".
+
+Core ideas:
+- **One shared baseline**: user-level rules, commands, agents, skills, hooks, and settings should install consistently for every engineer.
+- **Project context stays project-specific**: `templates/project/CLAUDE.md` should stay short, honest, and high-signal.
+- **Safe updates over clever merges**: the manifest-based SHA-256 strategy is intentionally simple; local edits are skipped instead of being half-merged.
+- **Docs should reflect reality**: this repo prefers a small number of maintained entry docs over many overlapping helper files.
+- **Private/internal distribution first**: this package is valid as a local install, local tarball install, or private npm package before it ever needs public npm.
+
 ### Project template philosophy
 
 The shipped `templates/project/CLAUDE.md` is intentionally a **short, hard skeleton** — not a fake fully-written onboarding doc.
@@ -102,6 +162,14 @@ Its job is to force each repo to answer a few high-value questions consistently:
 - what guardrails or danger zones exist
 
 If a project needs richer explanation, put that in `docs/` and link it from the project `CLAUDE.md` instead of turning the template itself into a long essay.
+
+## Inspirations / references
+
+This repo was shaped by a few prior patterns and references:
+- **Karpathy-style "skills" pattern** — using reusable, on-demand playbooks instead of stuffing everything into one always-loaded prompt.
+- **shanraisshan harness layout ideas** — layered structure for rules, commands, agents, skills, and supporting files.
+- **OpenSpec workflow** — kept as an optional peer dependency instead of being bundled, so spec-driven teams can opt in without forcing it on every install.
+- **Manifest-based installer design** — explicit file hashing and safe overwrite behavior instead of trying to do fragile automatic merges.
 
 ## Release / publish checklist
 
