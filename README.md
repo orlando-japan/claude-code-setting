@@ -90,6 +90,19 @@ docs/                architecture + authoring guidance
 test/                minimal smoke and template safety tests
 ```
 
+### Project template philosophy
+
+The shipped `templates/project/CLAUDE.md` is intentionally a **short, hard skeleton** — not a fake fully-written onboarding doc.
+
+Its job is to force each repo to answer a few high-value questions consistently:
+- what this project is
+- how to run and verify it
+- which paths matter first
+- what the current priorities are
+- what guardrails or danger zones exist
+
+If a project needs richer explanation, put that in `docs/` and link it from the project `CLAUDE.md` instead of turning the template itself into a long essay.
+
 ## Release / publish checklist
 
 Before calling this repo “ready for release”, verify:

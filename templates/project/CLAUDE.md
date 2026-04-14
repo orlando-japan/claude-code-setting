@@ -1,32 +1,92 @@
 # Project instructions
 
-> This file is project-specific. It layers on top of the user-level `~/.claude/CLAUDE.md` (shared coding principles, style, security, commit conventions, testing). Only put things here that are unique to *this* repo.
+> This file is the **project-level layer** for Claude Code. It should stay short and specific.
+>
+> Purpose:
+> - give Claude the minimum repo context it needs to work safely
+> - make every project answer the same critical questions
+> - avoid dumping long design docs or generic rules here
+>
+> Do **not** copy the global user rules into this file. Only write things that are unique to this repo.
 
-## What this project is
+## 1. What this project is
 
-> One paragraph. What does this codebase do? Who uses it? What language and framework?
+> Fill this in with 3-6 lines, not a giant intro.
+>
+> Answer:
+> - what the project does
+> - who uses it
+> - main stack / runtime
+> - whether this is production code, internal tooling, experiment, or legacy system
 
-## How to run it
+## 2. How to run and verify
+
+> Replace this with the real commands. If a command does not exist, say so explicitly.
 
 ```bash
 # install
 # run dev
 # run tests
 # lint / format
+# build / package (if applicable)
 ```
 
-## Architecture notes
+## 3. Important paths
 
-> Non-obvious structure a new contributor would miss by reading `find . -type d`. Where does the important logic live? What's the request lifecycle? Where's the boundary between layers?
+> List only the paths Claude should care about first.
+>
+> Good examples:
+> - `src/...` core app logic
+> - `api/...` request handlers
+> - `docs/...` active design docs
+> - `scripts/...` operational helpers
+> - `tests/...` or colocated test pattern
 
-## Conventions specific to this repo
+## 4. Current priorities
 
-> Anything that deviates from the user-level rules. "We use tabs not spaces because X." "Tests live next to source, not in /tests, because Y." "No `any` in this codebase — turn on noImplicitAny."
+> What matters right now?
+>
+> Examples:
+> - stabilize onboarding flow
+> - refactor auth without changing behavior
+> - ship v0.3 admin import
+> - reduce flaky tests in payments
 
-## Known pitfalls
+## 5. Repo-specific conventions
 
-> Things that have bitten people. "Don't run migrations locally against prod DB, the staging credential is confusingly named." "The auth module has a silent global state — don't import it twice."
+> Only write deviations from the global rules.
+>
+> Examples:
+> - tests are colocated with source
+> - this repo uses tabs
+> - do not introduce barrel exports
+> - prefer feature folders over layer folders
 
-## Do NOT touch
+## 6. Guardrails / do-not-touch
 
-> Files or directories that should only be edited with approval. Generated code, legacy compat shims, auth boundary files, anything with a "danger zone" label.
+> Name files, directories, or boundaries that require extra caution.
+>
+> Examples:
+> - generated code
+> - migration history
+> - billing / auth boundaries
+> - legacy compatibility shims
+> - infrastructure files that should only change with review
+
+## 7. Known pitfalls
+
+> Short bullets only. Use this for traps that waste time or cause damage.
+>
+> Examples:
+> - a misleading environment variable name
+> - a cache layer that masks stale reads
+> - tests that require a local service
+> - a script that looks safe but mutates production data
+
+## Writing standard
+
+>- Keep this file short: target ~40-80 lines.
+>- Prefer bullets over essays.
+>- If something becomes long-lived reference material, move it to `docs/` and link it.
+>- If a section is unknown, write `TODO` rather than fake detail.
+>- A sparse but honest file is better than a polished lie.
