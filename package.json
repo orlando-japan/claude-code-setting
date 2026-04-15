@@ -1,7 +1,7 @@
 {
   "name": "@company/claude-code-setting",
   "version": "0.1.1",
-  "description": "Company-wide Claude Code harness: shared rules, spec workflow, subagents, skills, and settings.",
+  "description": "Company-wide AI coding harness: shared rules and skills, plus Claude Code and Codex profile templates.",
   "type": "module",
   "bin": {
     "company-cc": "src/cli.js"
@@ -36,6 +36,7 @@
   },
   "keywords": [
     "claude-code",
+    "codex",
     "harness",
     "spec-driven",
     "ai-coding",

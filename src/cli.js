@@ -1,63 +1,86 @@
 #!/usr/bin/env node
+import { pathToFileURL } from 'node:url';
 import { init } from './commands/init.js';
 import { update } from './commands/update.js';
 import { doctor } from './commands/doctor.js';
 import { log } from './lib/log.js';
 
-const USAGE = `company-cc — Claude Code harness installer
+export const USAGE = `company-cc — AI coding harness installer
 
 Usage:
-  company-cc init [--user] [--project] [--extras] [--force]
-  company-cc update [--dry-run] [--force]
-  company-cc doctor
+  company-cc init [--user] [--project] [--extras] [--force] [--target <claude|codex|both>]
+  company-cc update [--dry-run] [--force] [--target <claude|codex|both>]
+  company-cc doctor [--target <claude|codex|both>]
 
 Options:
-  --user       Install user-level assets to ~/.claude/
-  --project    Install project-level assets to <cwd>/.claude/ and CLAUDE.md
+  --user       Install user-level assets to the selected target home
+  --project    Install project-level assets to <cwd>
   --extras     Also install opt-in advanced skills (ops, frontend, infra, evals)
   --force      Overwrite locally modified files (default: skip with warning)
   --dry-run    Print what would change without touching files
+  --target     Installation target (default: claude)
   -h, --help   Show this help
 `;
 
-function parseFlags(argv) {
+export function parseFlags(argv) {
   const flags = {};
-  for (const a of argv) {
-    if (a.startsWith('--')) flags[a.slice(2)] = true;
+  for (let i = 0; i < argv.length; i++) {
+    const a = argv[i];
+    if (!a.startsWith('--')) continue;
+    const eq = a.indexOf('=');
+    if (eq !== -1) {
+      flags[a.slice(2, eq)] = a.slice(eq + 1);
+      continue;
+    }
+    const key = a.slice(2);
+    const next = argv[i + 1];
+    if (next && !next.startsWith('--') && key === 'target') {
+      flags[key] = next;
+      i++;
+      continue;
+    }
+    flags[key] = true;
   }
   return flags;
 }
 
-async function main() {
-  const [, , cmd, ...rest] = process.argv;
+export async function run(argv = process.argv.slice(2)) {
+  const [cmd, ...rest] = argv;
   const flags = parseFlags(rest);
 
   if (!cmd || cmd === '-h' || cmd === '--help') {
     console.log(USAGE);
-    return;
+    return 0;
   }
 
   try {
     switch (cmd) {
       case 'init':
         await init(flags);
-        break;
+        return 0;
       case 'update':
         await update(flags);
-        break;
+        return 0;
       case 'doctor':
         await doctor(flags);
-        break;
+        return 0;
       default:
         log.error(`Unknown command: ${cmd}`);
         console.log(USAGE);
-        process.exit(1);
+        return 1;
     }
   } catch (err) {
     log.error(err.message);
     if (process.env.DEBUG) console.error(err.stack);
-    process.exit(1);
+    return 1;
   }
 }
 
-main();
+async function main() {
+  const exitCode = await run();
+  if (exitCode !== 0) process.exit(exitCode);
+}
+
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  await main();
+}

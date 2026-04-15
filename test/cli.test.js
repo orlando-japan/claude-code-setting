@@ -1,23 +1,36 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
+import { run } from '../src/cli.js';
+import { MANIFEST_NAMES } from '../src/lib/targets.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const repoRoot = join(__dirname, '..');
-const cliPath = join(repoRoot, 'src', 'cli.js');
 
-function runCli(args = [], opts = {}) {
-  return spawnSync(process.execPath, [cliPath, ...args], {
-    cwd: repoRoot,
-    encoding: 'utf8',
-    ...opts,
-  });
+async function captureConsole(fn) {
+  const calls = { stdout: '', stderr: '' };
+  const origLog = console.log;
+  const origErr = console.error;
+
+  console.log = (...args) => {
+    calls.stdout += `${args.join(' ')}\n`;
+  };
+  console.error = (...args) => {
+    calls.stderr += `${args.join(' ')}\n`;
+  };
+
+  try {
+    const status = await fn();
+    return { status, ...calls };
+  } finally {
+    console.log = origLog;
+    console.error = origErr;
+  }
 }
 
 async function withTempHome(fn) {
@@ -29,15 +42,33 @@ async function withTempHome(fn) {
   }
 }
 
-test('cli shows usage with --help', () => {
-  const res = runCli(['--help']);
+async function withEnv(overrides, fn) {
+  const oldEnv = {};
+  for (const [key, value] of Object.entries(overrides)) {
+    oldEnv[key] = process.env[key];
+    if (value === undefined) delete process.env[key];
+    else process.env[key] = value;
+  }
+
+  try {
+    return await fn();
+  } finally {
+    for (const [key, value] of Object.entries(oldEnv)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  }
+}
+
+test('cli shows usage with --help', async () => {
+  const res = await captureConsole(() => run(['--help']));
   assert.equal(res.status, 0);
-  assert.match(res.stdout, /company-cc — Claude Code harness installer/);
+  assert.match(res.stdout, /company-cc — AI coding harness installer/);
   assert.match(res.stdout, /Usage:/);
 });
 
-test('cli fails on unknown command', () => {
-  const res = runCli(['nope']);
+test('cli fails on unknown command', async () => {
+  const res = await captureConsole(() => run(['nope']));
   assert.equal(res.status, 1);
   assert.match(res.stdout, /Usage:/);
   assert.match(res.stderr, /Unknown command: nope/);
@@ -45,9 +76,9 @@ test('cli fails on unknown command', () => {
 
 test('doctor reports uninitialized user profile without fatal failure', async () => {
   await withTempHome(async (home) => {
-    const res = runCli(['doctor'], {
-      env: { ...process.env, HOME: home, PATH: '' },
-    });
+    const res = await withEnv({ HOME: home, PATH: '' }, () =>
+      captureConsole(() => run(['doctor']))
+    );
 
     assert.equal(res.status, 0);
     assert.match(res.stdout, /Environment/);
@@ -61,13 +92,14 @@ test('doctor reports uninitialized user profile without fatal failure', async ()
 
 test('init --user performs a real isolated install and update restores missing tracked files', async () => {
   await withTempHome(async (home) => {
-    const env = { ...process.env, HOME: home };
     const claudeDir = join(home, '.claude');
-    const manifestPath = join(claudeDir, '.company-cc-manifest.json');
+    const manifestPath = join(claudeDir, MANIFEST_NAMES.claude);
     const settingsPath = join(claudeDir, 'settings.json');
     const rulePath = join(claudeDir, 'rules', 'coding-principles.md');
 
-    const initRes = runCli(['init', '--user'], { env });
+    const initRes = await withEnv({ HOME: home }, () =>
+      captureConsole(() => run(['init', '--user']))
+    );
     assert.equal(initRes.status, 0, initRes.stderr);
     assert.match(initRes.stdout, /Installing user profile/);
     assert.equal(existsSync(join(claudeDir, 'CLAUDE.md')), true);
@@ -85,10 +117,38 @@ test('init --user performs a real isolated install and update restores missing t
     await rm(settingsPath);
     assert.equal(existsSync(settingsPath), false);
 
-    const updateRes = runCli(['update'], { env });
+    const updateRes = await withEnv({ HOME: home }, () =>
+      captureConsole(() => run(['update']))
+    );
     assert.equal(updateRes.status, 0, updateRes.stderr);
     assert.match(updateRes.stdout, /Updating user profile/);
     assert.match(updateRes.stdout, /created\s+settings\.json/);
     assert.equal(existsSync(settingsPath), true);
+
+    const updatedManifest = JSON.parse(await readFile(manifestPath, 'utf8'));
+    assert.equal(updatedManifest.version, '0.1.1');
+  });
+});
+
+test('init --user --target codex installs shared assets into CODEX_HOME', async () => {
+  await withTempHome(async (home) => {
+    const codexHome = join(home, '.codex');
+    const manifestPath = join(codexHome, MANIFEST_NAMES.codex);
+
+    const res = await withEnv({ CODEX_HOME: codexHome }, () =>
+      captureConsole(() => run(['init', '--user', '--target', 'codex']))
+    );
+
+    assert.equal(res.status, 0, res.stderr);
+    assert.match(res.stdout, /Installing codex user profile/);
+    assert.equal(existsSync(join(codexHome, 'AGENTS.md')), true);
+    assert.equal(existsSync(join(codexHome, 'rules', 'coding-principles.md')), true);
+    assert.equal(existsSync(join(codexHome, 'skills', 'tdd', 'SKILL.md')), true);
+    assert.equal(existsSync(manifestPath), true);
+
+    const manifest = JSON.parse(await readFile(manifestPath, 'utf8'));
+    assert.equal(manifest.target, 'codex');
+    assert.match(manifest.files['AGENTS.md'], /^sha256:/);
+    assert.match(manifest.files['rules/coding-principles.md'], /^sha256:/);
   });
 });

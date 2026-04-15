@@ -1,6 +1,6 @@
 # Authoring rules
 
-Rules live in `templates/user/rules/*.md` and are imported from `templates/user/CLAUDE.md` via `@rules/<name>.md` lines. They become part of the always-loaded system context for every Claude Code session — so they are expensive. Be selective.
+Shared rules live in `templates/shared/rules/*.md` and are consumed by both Claude and Codex targets. In the Claude profile they are imported from `templates/claude-user/CLAUDE.md` via `@rules/<name>.md` lines, so they become part of the always-loaded context and should stay selective.
 
 ## When to add a rule
 
@@ -38,8 +38,8 @@ Keep each file under ~80 lines. If it's longer, it's probably a skill.
 
 ## Naming and registration
 
-1. Create `templates/user/rules/<kebab-name>.md`.
-2. Add `@rules/<kebab-name>.md` to the import block in `templates/user/CLAUDE.md`.
+1. Create `templates/shared/rules/<kebab-name>.md`.
+2. Add `@rules/<kebab-name>.md` to the import block in `templates/claude-user/CLAUDE.md`.
 3. Run `company-cc init --user --force` locally to verify it loads.
 4. Bump the package version (rules are user-facing; treat as a minor bump).
 

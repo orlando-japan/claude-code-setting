@@ -1,11 +1,11 @@
 # Authoring skills
 
-A **skill** is a Markdown playbook for a specific kind of work — "review a PR", "design an API", "debug a flaky test". Skills are NOT loaded by default; Claude Code reads them on demand when the description matches what the user is asking about. That makes them cheap to add and the right place for any reusable, longer-form expertise.
+A **skill** is a Markdown playbook for a specific kind of work — "review a PR", "design an API", "debug a flaky test". Skills are NOT loaded by default; the active coding tool reads them on demand when the description matches what the user is asking about. That makes them cheap to add and the right place for any reusable, longer-form expertise.
 
 ## File layout
 
 ```
-templates/user/skills/<kebab-name>/SKILL.md     <-- core skill (always installed)
+templates/shared/skills/<kebab-name>/SKILL.md   <-- core skill (always installed)
 templates/extra/skills/<kebab-name>/SKILL.md    <-- opt-in (only with --extras)
 ```
 
@@ -25,7 +25,7 @@ risk: low | medium | high
 ---
 ```
 
-The **description** is the single most important field. Claude Code matches user intent against descriptions to decide which skill to load. Bad descriptions = skill never gets used.
+The **description** is the single most important field. The tool matches user intent against descriptions to decide which skill to load. Bad descriptions = skill never gets used.
 
 - ✅ "Reduce p99 latency on API endpoints. Invoke when an endpoint is slow or a latency alert fires."
 - ❌ "Performance helper."
@@ -66,7 +66,7 @@ Keep skills under ~150 lines. If a skill is longer, it's probably two skills.
 
 ## Adding a skill
 
-1. Pick `core` (`templates/user/skills/`) or `extra` (`templates/extra/skills/`).
+1. Pick `core` (`templates/shared/skills/`) or `extra` (`templates/extra/skills/`).
    - Core: relevant to ~all engineers. Defaults installed.
    - Extra: domain-specific (e.g. infra-as-code, frontend-performance). Only installed with `--extras`.
 2. Create `<kebab-name>/SKILL.md` with frontmatter and body.
@@ -75,7 +75,7 @@ Keep skills under ~150 lines. If a skill is longer, it's probably two skills.
 
 ## Reviewing a skill PR
 
-- **Description quality** — would Claude Code know to load this from a real user prompt?
+- **Description quality** — would the active coding tool know to load this from a real user prompt?
 - **Overlap** — is this already covered by an existing skill? If so, extend that one instead.
 - **Risk classification** — anything that mutates infra, data, or auth should be `risk: high`.
 - **Length** — over ~150 lines is a smell; split or trim.

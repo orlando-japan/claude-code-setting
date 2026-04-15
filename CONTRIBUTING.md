@@ -1,6 +1,6 @@
 # Contributing
 
-This repository is intentionally small: it ships a Claude Code harness installer plus the template files that get copied into user and project environments.
+This repository is intentionally small: it ships an AI coding harness installer plus the template files that get copied into user and project environments.
 
 ## Ground rules
 
@@ -17,6 +17,7 @@ Examples:
 - `src/commands/update.js`
 - `src/commands/doctor.js`
 - `src/lib/template.js`
+- `src/lib/targets.js`
 
 When changing installer logic:
 - run `npm test`
@@ -26,8 +27,11 @@ When changing installer logic:
 
 ### 2. Templates
 Examples:
-- `templates/user/...`
-- `templates/project/...`
+- `templates/shared/...`
+- `templates/claude-user/...`
+- `templates/codex-user/...`
+- `templates/claude-project/...`
+- `templates/codex-project/...`
 - `templates/extra/...`
 
 When changing templates:

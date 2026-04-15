@@ -1,4 +1,4 @@
-import { readdir, readFile, writeFile, mkdir, stat } from 'node:fs/promises';
+import { readdir, readFile, writeFile, mkdir } from 'node:fs/promises';
 import { dirname, join, relative, sep } from 'node:path';
 import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -7,8 +7,6 @@ import { hashBuffer, hashFile } from './hash.js';
 const __filename = fileURLToPath(import.meta.url);
 const PACKAGE_ROOT = join(dirname(__filename), '..', '..');
 export const TEMPLATES_ROOT = join(PACKAGE_ROOT, 'templates');
-
-const MANIFEST_NAME = '.company-cc-manifest.json';
 
 /** Walk a directory and yield files relative to it (posix-style paths). */
 export async function listTemplateFiles(root) {
@@ -25,8 +23,12 @@ export async function listTemplateFiles(root) {
   return out.sort();
 }
 
-export async function readManifest(destRoot) {
-  const path = join(destRoot, MANIFEST_NAME);
+export function getManifestPath(destRoot, manifestName) {
+  return join(destRoot, manifestName);
+}
+
+export async function readManifest(destRoot, manifestName) {
+  const path = getManifestPath(destRoot, manifestName);
   if (!existsSync(path)) return { version: null, installed: null, files: {} };
   try {
     return JSON.parse(await readFile(path, 'utf8'));
@@ -35,10 +37,10 @@ export async function readManifest(destRoot) {
   }
 }
 
-export async function writeManifest(destRoot, manifest) {
+export async function writeManifest(destRoot, manifestName, manifest) {
   await mkdir(destRoot, { recursive: true });
   await writeFile(
-    join(destRoot, MANIFEST_NAME),
+    getManifestPath(destRoot, manifestName),
     JSON.stringify(manifest, null, 2) + '\n'
   );
 }

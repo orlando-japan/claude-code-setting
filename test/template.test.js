@@ -5,6 +5,7 @@ import { existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { applyTemplateFile, readManifest } from '../src/lib/template.js';
+import { MANIFEST_NAMES } from '../src/lib/targets.js';
 
 async function makeFixture() {
   const root = await mkdtemp(join(tmpdir(), 'company-cc-test-'));
@@ -21,7 +22,7 @@ test('applyTemplateFile creates a missing file and records hash', async () => {
   await mkdir(join(srcRoot, 'rules'), { recursive: true });
   await writeFile(join(srcRoot, rel), '# example\n');
 
-  const manifest = await readManifest(destRoot);
+  const manifest = await readManifest(destRoot, MANIFEST_NAMES.claude);
   const result = await applyTemplateFile(srcRoot, destRoot, rel, manifest, {});
 
   assert.equal(result, 'created');

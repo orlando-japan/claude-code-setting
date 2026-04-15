@@ -98,7 +98,7 @@
   },
   "env": {
     "CLAUDE_CODE_INCLUDE_COAUTHORED_BY": "true",
-    "CLAUDE_HARNESS_VERSION": "0.1.0"
+    "CLAUDE_HARNESS_VERSION": "0.1.1"
   },
   "hooks": {
     "PreToolUse": [

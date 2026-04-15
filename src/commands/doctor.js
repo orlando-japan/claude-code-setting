@@ -1,20 +1,13 @@
 import { join } from 'node:path';
-import { homedir } from 'node:os';
 import { existsSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { execSync } from 'node:child_process';
 import { log } from '../lib/log.js';
+import { getManifestPath } from '../lib/template.js';
+import { getTargetConfig, parseTargetFlag } from '../lib/targets.js';
 
-const USER_CLAUDE_DIR = join(homedir(), '.claude');
-const USER_MANIFEST = join(USER_CLAUDE_DIR, '.company-cc-manifest.json');
-
-const REQUIRED_USER_FILES = [
-  'CLAUDE.md',
-  'settings.json',
-  'rules/coding-principles.md',
-];
-
-export async function doctor() {
+export async function doctor(flags) {
+  const targets = parseTargetFlag(flags.target);
   const summary = {
     fatal: 0,
     optional: 0,
@@ -48,35 +41,41 @@ export async function doctor() {
   }
 
   log.step('User profile');
-  const userDirExists = existsSync(USER_CLAUDE_DIR);
-  const manifestExists = existsSync(USER_MANIFEST);
+  for (const target of targets) {
+    const cfg = getTargetConfig(target);
+    const manifestPath = getManifestPath(cfg.userDest, cfg.userManifestName);
+    const userDirExists = existsSync(cfg.userDest);
+    const manifestExists = existsSync(manifestPath);
+    const prefix = target === 'claude' ? 'user profile' : `${target} user profile`;
 
-  if (!userDirExists) {
-    uninitialized('user profile', `not initialized yet — run \`company-cc init --user\` to create ${USER_CLAUDE_DIR}`);
-  } else if (!manifestExists) {
-    uninitialized('user profile manifest', 'missing — run `company-cc init --user`');
-  } else {
-    ok('user profile', USER_CLAUDE_DIR);
-    ok('manifest present', USER_MANIFEST);
+    if (!userDirExists) {
+      uninitialized(prefix, `not initialized yet — run \`company-cc init --user --target ${target}\` to create ${cfg.userDest}`);
+      continue;
+    }
+    if (!manifestExists) {
+      uninitialized(`${prefix} manifest`, `missing — run \`company-cc init --user --target ${target}\``);
+      continue;
+    }
 
-    for (const rel of REQUIRED_USER_FILES) {
-      const fullPath = join(USER_CLAUDE_DIR, rel);
+    ok(prefix, cfg.userDest);
+    ok(`${prefix} manifest`, manifestPath);
+
+    for (const rel of cfg.requiredUserFiles) {
+      const fullPath = join(cfg.userDest, rel);
       if (!existsSync(fullPath)) {
-        fatal(`user/${rel}`, 'missing');
+        fatal(`${target}/user/${rel}`, 'missing');
       } else {
-        ok(`user/${rel}`, 'present');
+        ok(`${target}/user/${rel}`, 'present');
       }
     }
 
-    const settingsPath = join(USER_CLAUDE_DIR, 'settings.json');
-    if (!existsSync(settingsPath)) {
-      fatal('settings.json is valid JSON', 'missing');
-    } else {
+    const settingsPath = join(cfg.userDest, 'settings.json');
+    if (existsSync(settingsPath)) {
       try {
         JSON.parse(await readFile(settingsPath, 'utf8'));
-        ok('settings.json is valid JSON', 'parsed');
+        ok(`${target}/settings.json is valid JSON`, 'parsed');
       } catch (err) {
-        fatal('settings.json is valid JSON', err.message);
+        fatal(`${target}/settings.json is valid JSON`, err.message);
       }
     }
   }
