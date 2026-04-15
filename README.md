@@ -1,6 +1,6 @@
 # @company/claude-code-setting
 
-Company-wide Claude Code harness. One install gives every engineer a consistent setup: shared coding rules, spec-driven workflow, curated skills, subagents, and safe permissions.
+Company-wide AI coding harness. One install gives every engineer a consistent setup: shared rules and skills, plus target-specific Claude Code or Codex profile files.
 
 ## Status
 
@@ -60,7 +60,7 @@ git clone https://github.com/orlando-japan/claude-code-setting.git
 cd claude-code-setting
 npm install
 npm pack
-npm i -g ./company-cc-*.tgz
+npm i -g ./company-claude-code-setting-*.tgz
 
 # verify
 company-cc --help
@@ -83,14 +83,20 @@ npm i -g @company/claude-code-setting --registry <your-private-registry>
 ## Quick start
 
 ```bash
-# Default: install both user (~/.claude/) and project (./.claude/, ./CLAUDE.md)
+# Default: install the Claude user profile (~/.claude/) and Claude project file (./CLAUDE.md)
 company-cc init
 
-# Just the user-level assets
-company-cc init --user
+# Install Codex user assets into $CODEX_HOME or ~/.codex
+company-cc init --user --target codex
+
+# Install both Claude and Codex user profiles
+company-cc init --user --target both
 
 # Just the project-level assets
 company-cc init --project
+
+# Install both project instruction files
+company-cc init --project --target both
 
 # Add the 7 opt-in advanced skills (ops, frontend, infra, evals)
 company-cc init --user --extras
@@ -107,20 +113,66 @@ company-cc update --force
 company-cc doctor
 ```
 
-Files you've edited yourself are detected via SHA-256 in the manifest at
-`~/.claude/.company-cc-manifest.json` and skipped on update unless you
-pass `--force`. New template files are always added.
+Files you've edited yourself are detected via SHA-256 in a target-specific manifest
+(`~/.claude/.company-cc-manifest.json` for Claude, `~/.codex/.company-cc-codex-manifest.json`
+for Codex by default) and skipped on update unless you pass `--force`. New template files are always added.
 
 ## What you get
 
 | Layer | Content |
 |---|---|
-| **Rules** (`rules/`) | 5 domain guides imported by `CLAUDE.md`: coding principles, style, security, commit conventions, testing |
-| **Commands** (`commands/`) | 8 slash commands including spec workflow (`/spec-propose`, `/spec-apply`, `/spec-archive`) |
-| **Agents** (`agents/`) | 4 subagents: `code-reviewer`, `spec-writer`, `test-runner`, `security-auditor` |
-| **Skills** (`skills/`) | **33 core** playbooks (coding, review, architecture, security, workflow, AI, a11y) + **7 opt-in extras** (`--extras`): contract-testing, tracing-setup, alerting-hygiene, release-playbook, frontend-performance, infra-as-code, evals-design |
-| **Harness** (`settings.json`) | Wildcard permissions, PreToolUse guards on Bash/Edit, default model strategy, MCP stub |
-| **Hooks** (`hooks/`) | `guard-bash.sh` blocks destructive commands; `guard-edit.sh` blocks writes to secrets/keys/`.git` |
+| **Shared** (`templates/shared/`) | 5 global rules plus 33 core skills installed for both Claude and Codex targets |
+| **Claude-only** (`templates/claude-user/`, `templates/claude-project/`) | `CLAUDE.md`, slash commands, agents, settings, MCP stub, hooks |
+| **Codex-only** (`templates/codex-user/`, `templates/codex-project/`) | `AGENTS.md` user and project scaffolds |
+| **Extras** (`templates/extra/`) | 7 opt-in advanced skills (`--extras`) shared across targets |
+
+## How to use the harness
+
+Once installed, the harness loads automatically every time you start Claude Code. Day-to-day use falls into three modes.
+
+### 1. Everyday coding (passive)
+
+Just start Claude Code and make a request. Behind the scenes the session picks up:
+- The four coding principles in `CLAUDE.md` (Think → Simplicity → Surgical → Goal-driven)
+- Five global rules (`code-style`, `coding-principles`, `security`, `commit-conventions`, `testing`)
+- 33 core skills, chosen on demand by the model based on the task
+- `PreToolUse` guard hooks on `Bash` and `Write|Edit|MultiEdit` that block obviously-dangerous commands
+
+What you'll notice: shorter replies, less over-engineering, fewer "while I'm in here" refactors, dangerous shell commands refused.
+
+### 2. Slash commands (manual triggers)
+
+Type `/` in the Claude Code prompt to see them. The shipped ones:
+
+| Command | When to use |
+|---|---|
+| `/review` | Review a file, the staged diff, or a PR along four axes |
+| `/commit-smart` | Stage the right files and write a conventional commit from the diff |
+| `/test-focused` | Run only the tests relevant to recently changed files |
+| `/refactor-surgical` | Refactor while preserving observable behavior |
+| `/doctor` | Verify the harness is installed and active |
+| `/spec:propose` / `/spec:apply` / `/spec:archive` | Spec-driven feature flow (requires OpenSpec) |
+
+### 3. Spec-driven feature flow (OpenSpec)
+
+For features only — bug fixes and small edits should skip this flow. Requires `npm i -g @fission-ai/openspec`.
+
+```
+/spec:propose   → draft a change spec under openspec/changes/<name>/
+                  (review the spec with a human before moving on)
+/model sonnet   → swap to a cheaper executor
+/spec:apply     → implement the tasks listed in the approved spec
+/spec:archive   → merge the change into openspec/specs/ as the canonical spec
+```
+
+The `CLAUDE.md` default is **Opus for planning, Sonnet for execution** — use `/model` to swap between phases.
+
+### Recommended first steps after install
+
+1. Restart Claude Code so the new settings, hooks, and skills load.
+2. Run a small task ("add a unit test for function X") and confirm the response stays short and surgical.
+3. Try `/commit-smart` on a real diff to see the commit-message flow.
+4. Save the spec flow for your next actual feature, not a warm-up task.
 
 ## Development
 
@@ -135,7 +187,7 @@ rm -rf "$TMP_HOME"
 ```
 
 Notes:
-- `doctor` is intentionally calm before first install: missing optional tooling or a missing `~/.claude/` manifest shows as guidance, not a fatal failure.
+- `doctor` is intentionally calm before first install: missing optional tooling or a missing target manifest shows as guidance, not a fatal failure.
 - The isolated `HOME` flow above is the real install/update smoke path; use it when changing installer behavior.
 
 ### Repo layout
@@ -149,18 +201,19 @@ test/                minimal smoke and template safety tests
 
 ## Design philosophy
 
-This repo is designed as a **company-wide Claude Code harness skeleton**, not as a fully opinionated monolith and not as a fake "complete project handbook".
+This repo is designed as a **company-wide AI coding harness skeleton**, not as a fully opinionated monolith and not as a fake "complete project handbook".
 
 Core ideas:
-- **One shared baseline**: user-level rules, commands, agents, skills, hooks, and settings should install consistently for every engineer.
-- **Project context stays project-specific**: `templates/project/CLAUDE.md` should stay short, honest, and high-signal.
+- **One shared baseline**: rules and skills should install consistently for every engineer regardless of tool.
+- **Provider adapters stay thin**: Claude-specific commands/hooks/settings and Codex-specific entry files live in separate template roots.
+- **Project context stays project-specific**: project instruction files should stay short, honest, and high-signal.
 - **Safe updates over clever merges**: the manifest-based SHA-256 strategy is intentionally simple; local edits are skipped instead of being half-merged.
 - **Docs should reflect reality**: this repo prefers a small number of maintained entry docs over many overlapping helper files.
 - **Private/internal distribution first**: this package is valid as a local install, local tarball install, or private npm package before it ever needs public npm.
 
 ### Project template philosophy
 
-The shipped `templates/project/CLAUDE.md` is intentionally a **short, hard skeleton** — not a fake fully-written onboarding doc.
+The shipped project templates (`templates/claude-project/CLAUDE.md` and `templates/codex-project/AGENTS.md`) are intentionally **short, hard skeletons** — not fake fully-written onboarding docs.
 
 Its job is to force each repo to answer a few high-value questions consistently:
 - what this project is
@@ -169,7 +222,7 @@ Its job is to force each repo to answer a few high-value questions consistently:
 - what the current priorities are
 - what guardrails or danger zones exist
 
-If a project needs richer explanation, put that in `docs/` and link it from the project `CLAUDE.md` instead of turning the template itself into a long essay.
+If a project needs richer explanation, put that in `docs/` and link it from the project instruction file instead of turning the template itself into a long essay.
 
 ## Inspirations / references
 
@@ -187,6 +240,7 @@ Before calling this repo “ready for release”, verify:
 - isolated real install/update smoke passes with a temporary `HOME`
 - `npm pack --dry-run` includes only the intended publish payload
 - `.claude/settings.local.json` is not committed
+- Codex and Claude target templates still install into separate homes without manifest collisions
 - package version is bumped intentionally
 - `package.json` metadata (`repository`, `homepage`, `bugs`, `bin`, `files`) still matches reality
 - README and template docs reflect the actual shipped behavior
