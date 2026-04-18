@@ -42,6 +42,19 @@ async function withTempHome(fn) {
   }
 }
 
+async function withTempCwd(fn) {
+  const cwd = await mkdtemp(join(tmpdir(), 'company-cc-project-'));
+  const oldCwd = process.cwd();
+
+  try {
+    process.chdir(cwd);
+    await fn(cwd);
+  } finally {
+    process.chdir(oldCwd);
+    await rm(cwd, { recursive: true, force: true });
+  }
+}
+
 async function withEnv(overrides, fn) {
   const oldEnv = {};
   for (const [key, value] of Object.entries(overrides)) {
@@ -150,5 +163,73 @@ test('init --user --target codex installs shared assets into CODEX_HOME', async 
     assert.equal(manifest.target, 'codex');
     assert.match(manifest.files['AGENTS.md'], /^sha256:/);
     assert.match(manifest.files['rules/coding-principles.md'], /^sha256:/);
+  });
+});
+
+test('init --project installs project CLAUDE.md and update restores it', async () => {
+  await withTempCwd(async (projectDir) => {
+    const manifestPath = join(projectDir, MANIFEST_NAMES.claude);
+    const claudePath = join(projectDir, 'CLAUDE.md');
+
+    const initRes = await captureConsole(() =>
+      run(['init', '--project'])
+    );
+
+    assert.equal(initRes.status, 0, initRes.stderr);
+    assert.match(initRes.stdout, /Installing project profile/);
+    assert.equal(existsSync(claudePath), true);
+    assert.equal(existsSync(manifestPath), true);
+
+    const manifest = JSON.parse(await readFile(manifestPath, 'utf8'));
+    assert.equal(manifest.target, 'claude');
+    assert.equal(typeof manifest.version, 'string');
+    assert.ok(manifest.installed);
+    assert.match(manifest.files['CLAUDE.md'], /^sha256:/);
+
+    await rm(claudePath);
+    assert.equal(existsSync(claudePath), false);
+
+    const updateRes = await captureConsole(() =>
+      run(['update'])
+    );
+
+    assert.equal(updateRes.status, 0, updateRes.stderr);
+    assert.match(updateRes.stdout, /Updating project profile/);
+    assert.match(updateRes.stdout, /created\s+CLAUDE\.md/);
+    assert.equal(existsSync(claudePath), true);
+  });
+});
+
+test('init --project --target codex installs project AGENTS.md and update restores it', async () => {
+  await withTempCwd(async (projectDir) => {
+    const manifestPath = join(projectDir, MANIFEST_NAMES.codex);
+    const agentsPath = join(projectDir, 'AGENTS.md');
+
+    const initRes = await captureConsole(() =>
+      run(['init', '--project', '--target', 'codex'])
+    );
+
+    assert.equal(initRes.status, 0, initRes.stderr);
+    assert.match(initRes.stdout, /Installing codex project profile/);
+    assert.equal(existsSync(agentsPath), true);
+    assert.equal(existsSync(manifestPath), true);
+
+    const manifest = JSON.parse(await readFile(manifestPath, 'utf8'));
+    assert.equal(manifest.target, 'codex');
+    assert.equal(typeof manifest.version, 'string');
+    assert.ok(manifest.installed);
+    assert.match(manifest.files['AGENTS.md'], /^sha256:/);
+
+    await rm(agentsPath);
+    assert.equal(existsSync(agentsPath), false);
+
+    const updateRes = await captureConsole(() =>
+      run(['update', '--target', 'codex'])
+    );
+
+    assert.equal(updateRes.status, 0, updateRes.stderr);
+    assert.match(updateRes.stdout, /Updating codex project profile/);
+    assert.match(updateRes.stdout, /created\s+AGENTS\.md/);
+    assert.equal(existsSync(agentsPath), true);
   });
 });
