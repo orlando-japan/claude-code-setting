@@ -89,11 +89,7 @@ Parse the project `CLAUDE.md` / `AGENTS.md` after install and warn if the requir
 
 Warning only; does not block.
 
-### Interactive `init`
-
-When `company-cc init` is called with no flags, prompt for target, scope, and extras using the `prompts` dependency already in `package.json`.
-
-Non-interactive environments (CI, piped stdin) fall back to current defaults automatically.
+### Interactive `init` ✓
 
 ### `--json` output mode
 

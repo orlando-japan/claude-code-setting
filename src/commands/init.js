@@ -2,6 +2,7 @@ import { join } from 'node:path';
 import { readFile, readdir, chmod } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import prompts from 'prompts';
 import { log } from '../lib/log.js';
 import { listTemplateFiles as walkTree } from '../lib/template.js';
 import {
@@ -13,6 +14,64 @@ import {
   ensureWritable,
 } from '../lib/template.js';
 import { getTargetConfig, parseTargetFlag } from '../lib/targets.js';
+
+async function promptForInitFlags(flags) {
+  if (!process.stdin.isTTY) return;
+
+  const skillsDir = join(TEMPLATES_ROOT, 'extra', 'skills');
+  let available = [];
+  if (existsSync(skillsDir)) {
+    const entries = await readdir(skillsDir, { withFileTypes: true });
+    available = entries.filter(e => e.isDirectory()).map(e => e.name).sort();
+  }
+
+  const questions = [
+    {
+      type: 'select',
+      name: 'target',
+      message: 'Installation target',
+      choices: [
+        { title: 'Claude Code  (~/.claude/)', value: 'claude' },
+        { title: 'Codex        (~/.codex/)',  value: 'codex'  },
+        { title: 'Both',                      value: 'both'   },
+      ],
+      initial: 0,
+    },
+    {
+      type: 'select',
+      name: 'scope',
+      message: 'What to install',
+      choices: [
+        { title: 'User profile + project file', value: 'both'    },
+        { title: 'User profile only',           value: 'user'    },
+        { title: 'Project file only',           value: 'project' },
+      ],
+      initial: 0,
+    },
+  ];
+
+  if (available.length > 0) {
+    questions.push({
+      type: 'multiselect',
+      name: 'extras',
+      message: 'Extra skills  (space to toggle, enter to skip)',
+      choices: available.map(name => ({ title: name, value: name })),
+      instructions: false,
+      hint: 'optional',
+    });
+  }
+
+  const res = await prompts(questions, {
+    onCancel: () => { log.info('Cancelled.'); process.exit(0); },
+  });
+
+  if (!res.target) return; // Ctrl+C or empty response
+
+  if (res.target !== 'claude') flags.target = res.target;
+  if (res.scope === 'user') flags.user = true;
+  else if (res.scope === 'project') flags.project = true;
+  if (res.extras?.length > 0) flags.extras = res.extras.join(',');
+}
 
 async function resolveExtras(extrasFlag) {
   if (!extrasFlag) return null;
@@ -40,6 +99,9 @@ function filterExtrasFiles(files, selected) {
 }
 
 export async function init(flags) {
+  const isDefaultCall = !flags.user && !flags.project && flags.extras === undefined && !flags.target;
+  if (isDefaultCall) await promptForInitFlags(flags);
+
   const doUser = flags.user || (!flags.user && !flags.project);
   const doProject = flags.project || (!flags.user && !flags.project);
   const targets = parseTargetFlag(flags.target);

@@ -159,6 +159,22 @@ test('init --user --dry-run writes no files to disk', async () => {
   });
 });
 
+test('init with no flags in non-TTY falls back to default (user+project)', async () => {
+  await withTempHome(async (home) => {
+    await withTempCwd(async (cwd) => {
+      // process.stdin.isTTY is false in test env, so interactive prompts are skipped
+      const res = await withEnv({ HOME: home }, () =>
+        captureConsole(() => run(['init']))
+      );
+      assert.equal(res.status, 0, res.stderr);
+      assert.match(res.stdout, /Installing user profile/);
+      assert.match(res.stdout, /Installing project profile/);
+      assert.equal(existsSync(join(home, '.claude', 'CLAUDE.md')), true);
+      assert.equal(existsSync(join(cwd, 'CLAUDE.md')), true);
+    });
+  });
+});
+
 test('init --user performs a real isolated install and update restores missing tracked files', async () => {
   await withTempHome(async (home) => {
     const claudeDir = join(home, '.claude');
