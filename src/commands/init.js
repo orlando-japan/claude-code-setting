@@ -106,14 +106,14 @@ export async function init(flags) {
 
   const doUser = flags.user || (!flags.user && !flags.project);
   const doProject = flags.project || (!flags.user && !flags.project);
-  const targets = parseTargetFlag(flags.target);
+  const targets = parseTargetFlag(flags.target, flags._customTargets);
   const selectedExtras = await resolveExtras(flags.extras);
 
   const userOverlays = await loadOverlays(homedir());
   const projectOverlays = await loadOverlays(process.cwd());
 
   for (const target of targets) {
-    const cfg = getTargetConfig(target);
+    const cfg = getTargetConfig(target, flags._customTargets);
     if (doUser) {
       const srcRoots = [...cfg.userSrcs];
       if (selectedExtras) srcRoots.push(join(TEMPLATES_ROOT, 'extra'));

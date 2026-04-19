@@ -8,7 +8,7 @@ import { hashFile } from '../lib/hash.js';
 import { getTargetConfig, parseTargetFlag } from '../lib/targets.js';
 
 export async function doctor(flags) {
-  const targets = parseTargetFlag(flags.target);
+  const targets = parseTargetFlag(flags.target, flags._customTargets);
   const json = !!flags.json;
   const summary = { fatal: 0, optional: 0, uninitialized: 0, stubs: 0 };
   const checks = [];
@@ -52,7 +52,7 @@ export async function doctor(flags) {
 
   if (!json) log.step('User profile');
   for (const target of targets) {
-    const cfg = getTargetConfig(target);
+    const cfg = getTargetConfig(target, flags._customTargets);
     const manifestPath = getManifestPath(cfg.userDest, cfg.userManifestName);
     const userDirExists = existsSync(cfg.userDest);
     const manifestExists = existsSync(manifestPath);
@@ -97,10 +97,10 @@ export async function doctor(flags) {
 
   if (!json) log.step('Project profile');
   for (const target of targets) {
-    const cfg = getTargetConfig(target);
+    const cfg = getTargetConfig(target, flags._customTargets);
     const manifestPath = getManifestPath(cfg.projectDest, cfg.projectManifestName);
     const prefix = target === 'claude' ? 'project profile' : `${target} project profile`;
-    const instructionFile = target === 'claude' ? 'CLAUDE.md' : 'AGENTS.md';
+    const instructionFile = cfg.instructionFile;
 
     if (!existsSync(manifestPath)) {
       uninitialized(prefix, `not initialized — run \`company-cc init --project --target ${target}\` to add ${instructionFile}`);

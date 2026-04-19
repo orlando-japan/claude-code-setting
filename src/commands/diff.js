@@ -12,10 +12,10 @@ export async function diff(flags, args) {
     return 1;
   }
 
-  const targets = parseTargetFlag(flags.target);
+  const targets = parseTargetFlag(flags.target, flags._customTargets);
 
   for (const target of targets) {
-    const cfg = getTargetConfig(target);
+    const cfg = getTargetConfig(target, flags._customTargets);
 
     const profiles = [
       { name: 'user', dest: cfg.userDest, manifestName: cfg.userManifestName },

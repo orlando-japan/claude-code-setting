@@ -6,15 +6,15 @@ import { hashFile } from '../lib/hash.js';
 import { getTargetConfig, parseTargetFlag } from '../lib/targets.js';
 
 export async function ci(flags) {
-  const targets = parseTargetFlag(flags.target);
+  const targets = parseTargetFlag(flags.target, flags._customTargets);
   const json = !!flags.json;
   let exitCode = 0;
   const results = [];
 
   for (const target of targets) {
-    const cfg = getTargetConfig(target);
+    const cfg = getTargetConfig(target, flags._customTargets);
     const manifestPath = getManifestPath(cfg.projectDest, cfg.projectManifestName);
-    const instructionFile = target === 'claude' ? 'CLAUDE.md' : 'AGENTS.md';
+    const instructionFile = cfg.instructionFile;
     const filePath = join(cfg.projectDest, instructionFile);
     const label = target === 'claude' ? 'project' : `${target} project`;
 

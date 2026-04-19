@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { pathToFileURL } from 'node:url';
+import { homedir } from 'node:os';
 import { init } from './commands/init.js';
 import { update } from './commands/update.js';
 import { doctor } from './commands/doctor.js';
@@ -9,6 +10,7 @@ import { restore } from './commands/restore.js';
 import { uninstall } from './commands/uninstall.js';
 import { ci } from './commands/ci.js';
 import { log } from './lib/log.js';
+import { loadCustomTargets } from './lib/config.js';
 
 export const USAGE = `company-cc — AI coding harness installer
 
@@ -92,6 +94,8 @@ export async function run(argv = process.argv.slice(2)) {
       }
     }
   }
+
+  flags._customTargets = await loadCustomTargets([homedir(), process.cwd()]).catch(() => ({}));
 
   try {
     switch (cmd) {

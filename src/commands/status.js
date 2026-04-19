@@ -6,13 +6,13 @@ import { hashFile } from '../lib/hash.js';
 import { getTargetConfig, parseTargetFlag } from '../lib/targets.js';
 
 export async function status(flags) {
-  const targets = parseTargetFlag(flags.target);
+  const targets = parseTargetFlag(flags.target, flags._customTargets);
   const json = !!flags.json;
   let anyFound = false;
   const results = [];
 
   for (const target of targets) {
-    const cfg = getTargetConfig(target);
+    const cfg = getTargetConfig(target, flags._customTargets);
 
     const profiles = [
       { name: 'user', dest: cfg.userDest, manifestName: cfg.userManifestName },

@@ -13,11 +13,11 @@ export async function restore(flags, args) {
     return 1;
   }
 
-  const targets = parseTargetFlag(flags.target);
+  const targets = parseTargetFlag(flags.target, flags._customTargets);
   let found = false;
 
   for (const target of targets) {
-    const cfg = getTargetConfig(target);
+    const cfg = getTargetConfig(target, flags._customTargets);
 
     const profiles = [
       { dest: cfg.userDest, manifestName: cfg.userManifestName },

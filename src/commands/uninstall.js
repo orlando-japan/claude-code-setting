@@ -6,7 +6,7 @@ import { readManifest, getManifestPath } from '../lib/template.js';
 import { getTargetConfig, parseTargetFlag } from '../lib/targets.js';
 
 export async function uninstall(flags) {
-  const targets = parseTargetFlag(flags.target);
+  const targets = parseTargetFlag(flags.target, flags._customTargets);
   const dryRun = !flags.confirm;
 
   if (dryRun) {
@@ -14,7 +14,7 @@ export async function uninstall(flags) {
   }
 
   for (const target of targets) {
-    const cfg = getTargetConfig(target);
+    const cfg = getTargetConfig(target, flags._customTargets);
 
     const profiles = [
       { name: 'user', dest: cfg.userDest, manifestName: cfg.userManifestName },

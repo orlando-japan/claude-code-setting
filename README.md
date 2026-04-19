@@ -313,6 +313,7 @@ Files in the overlay directory mirror the target home structure and are installe
 - [Authoring agents](docs/authoring-agents.md)
 - [Authoring hooks](docs/authoring-hooks.md)
 - [Authoring overlays](docs/authoring-overlays.md)
+- [Authoring target adapters](docs/authoring-targets.md)
 - [Contributing](CONTRIBUTING.md)
 
 ## License

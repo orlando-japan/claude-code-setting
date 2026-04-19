@@ -10,19 +10,21 @@ export const MANIFEST_NAMES = {
   codex: '.company-cc-codex-manifest.json',
 };
 
-export function parseTargetFlag(value) {
+export function parseTargetFlag(value, customTargets = {}) {
   if (!value) return [DEFAULT_TARGET];
   if (value === 'both') return [...TARGETS];
-  if (TARGETS.includes(value)) return [value];
-  throw new Error(`Unknown target: ${value}. Use one of: claude, codex, both.`);
+  const known = [...TARGETS, ...Object.keys(customTargets)];
+  if (known.includes(value)) return [value];
+  throw new Error(`Unknown target: ${value}. Use one of: ${[...TARGETS, 'both', ...Object.keys(customTargets)].join(', ')}.`);
 }
 
-export function getTargetConfig(target) {
+export function getTargetConfig(target, customTargets = {}) {
   switch (target) {
     case 'claude':
       return {
         target,
         displayName: 'Claude Code',
+        instructionFile: 'CLAUDE.md',
         userDest: join(homedir(), '.claude'),
         projectDest: process.cwd(),
         userManifestName: MANIFEST_NAMES.claude,
@@ -35,6 +37,7 @@ export function getTargetConfig(target) {
       return {
         target,
         displayName: 'Codex',
+        instructionFile: 'AGENTS.md',
         userDest: process.env.CODEX_HOME || join(homedir(), '.codex'),
         projectDest: process.cwd(),
         userManifestName: MANIFEST_NAMES.codex,
@@ -44,6 +47,7 @@ export function getTargetConfig(target) {
         requiredUserFiles: ['AGENTS.md', 'rules/coding-principles.md'],
       };
     default:
+      if (customTargets[target]) return customTargets[target];
       throw new Error(`Unsupported target: ${target}`);
   }
 }

@@ -16,11 +16,11 @@ import {
 import { getTargetConfig, parseTargetFlag, TARGETS } from '../lib/targets.js';
 
 export async function update(flags) {
-  const selectedTargets = parseTargetFlag(flags.target);
+  const selectedTargets = parseTargetFlag(flags.target, flags._customTargets);
   const targets = [];
 
   for (const target of selectedTargets) {
-    const cfg = getTargetConfig(target);
+    const cfg = getTargetConfig(target, flags._customTargets);
 
     const userManifestExists = existsSync(getManifestPath(cfg.userDest, cfg.userManifestName));
     if (userManifestExists) {

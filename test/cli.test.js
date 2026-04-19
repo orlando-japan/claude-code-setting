@@ -658,6 +658,42 @@ test('overlay: update re-applies overlay files', async () => {
   });
 });
 
+test('custom target: init --target custom installs files to custom userDest', async () => {
+  await withTempHome(async (home) => {
+    await withTempCwd(async () => {
+      const customHome = join(home, '.myai');
+      const templateDir = join(home, 'myai-templates');
+      await mkdir(join(templateDir, 'rules'), { recursive: true });
+      await writeFile(join(templateDir, 'rules', 'myai-style.md'), '# My AI style\n');
+
+      await writeFile(join(home, '.company-cc.json'), JSON.stringify({
+        targets: {
+          myai: {
+            displayName: 'My AI Tool',
+            userDest: customHome,
+            instructionFile: 'MYAI.md',
+            userSrcs: ['./myai-templates'],
+            projectSrcs: [],
+            requiredUserFiles: [],
+          },
+        },
+      }));
+
+      const res = await withEnv({ HOME: home }, () =>
+        captureConsole(() => run(['init', '--user', '--target', 'myai']))
+      );
+      assert.equal(res.status, 0, res.stderr);
+      assert.equal(existsSync(join(customHome, 'rules', 'myai-style.md')), true);
+
+      const manifest = JSON.parse(await readFile(
+        join(customHome, '.company-cc-myai-manifest.json'), 'utf8'
+      ));
+      assert.equal(manifest.target, 'myai');
+      assert.match(manifest.files['rules/myai-style.md'].hash, /^sha256:/);
+    });
+  });
+});
+
 test('overlay: missing overlay path warns and continues', async () => {
   await withTempHome(async (home) => {
     await withTempCwd(async () => {

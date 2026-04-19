@@ -131,7 +131,7 @@ Manifest extension: each tracked file records its `source` so conflicts are attr
 
 This is the unlock for team customisation without forking the repo.
 
-### Custom target adapters
+### Custom target adapters ✓
 
 Make `TARGETS` in `src/lib/targets.js` extensible via config or a plugin entry point, so third parties can register Cursor, Aider, Gemini CLI, etc. without modifying core.
 
