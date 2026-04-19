@@ -91,7 +91,7 @@ Warning only; does not block.
 
 ### Interactive `init` ✓
 
-### `--json` output mode
+### `--json` output mode ✓
 
 Add `--json` flag to all commands. Returns a machine-readable summary useful for CI wrappers.
 
@@ -100,7 +100,7 @@ company-cc doctor --json
 company-cc status --json
 ```
 
-### `company-cc ci` check
+### `company-cc ci` check ✓
 
 Alias or subcommand that exits non-zero when the project-level instruction file is missing or its manifest is stale. Designed to run as a CI step on repos that have adopted the harness.
 

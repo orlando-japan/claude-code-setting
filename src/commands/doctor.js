@@ -9,32 +9,36 @@ import { getTargetConfig, parseTargetFlag } from '../lib/targets.js';
 
 export async function doctor(flags) {
   const targets = parseTargetFlag(flags.target);
-  const summary = {
-    fatal: 0,
-    optional: 0,
-    uninitialized: 0,
-    stubs: 0,
-  };
+  const json = !!flags.json;
+  const summary = { fatal: 0, optional: 0, uninitialized: 0, stubs: 0 };
+  const checks = [];
 
-  const ok = (name, details) => log.ok(`${name}${details ? ` — ${details}` : ''}`);
-  const fatal = (name, details) => {
-    log.error(`${name}${details ? ` — ${details}` : ''}`);
+  const ok = (name, detail) => {
+    checks.push({ name, status: 'ok', detail });
+    if (!json) log.ok(`${name}${detail ? ` — ${detail}` : ''}`);
+  };
+  const fatal = (name, detail) => {
+    checks.push({ name, status: 'fatal', detail });
+    if (!json) log.error(`${name}${detail ? ` — ${detail}` : ''}`);
     summary.fatal++;
   };
-  const optional = (name, details) => {
-    log.warn(`${name}${details ? ` — ${details}` : ''}`);
+  const optional = (name, detail) => {
+    checks.push({ name, status: 'warn', detail });
+    if (!json) log.warn(`${name}${detail ? ` — ${detail}` : ''}`);
     summary.optional++;
   };
-  const uninitialized = (name, details) => {
-    log.warn(`${name}${details ? ` — ${details}` : ''}`);
+  const uninitialized = (name, detail) => {
+    checks.push({ name, status: 'uninitialized', detail });
+    if (!json) log.warn(`${name}${detail ? ` — ${detail}` : ''}`);
     summary.uninitialized++;
   };
-  const stub = (name, details) => {
-    log.warn(`${name}${details ? ` — ${details}` : ''}`);
+  const stub = (name, detail) => {
+    checks.push({ name, status: 'stub', detail });
+    if (!json) log.warn(`${name}${detail ? ` — ${detail}` : ''}`);
     summary.stubs++;
   };
 
-  log.step('Environment');
+  if (!json) log.step('Environment');
   try {
     const [maj] = process.versions.node.split('.').map(Number);
     if (maj < 20) {
@@ -46,7 +50,7 @@ export async function doctor(flags) {
     fatal('node >= 20', err.message);
   }
 
-  log.step('User profile');
+  if (!json) log.step('User profile');
   for (const target of targets) {
     const cfg = getTargetConfig(target);
     const manifestPath = getManifestPath(cfg.userDest, cfg.userManifestName);
@@ -91,7 +95,7 @@ export async function doctor(flags) {
     }
   }
 
-  log.step('Project profile');
+  if (!json) log.step('Project profile');
   for (const target of targets) {
     const cfg = getTargetConfig(target);
     const manifestPath = getManifestPath(cfg.projectDest, cfg.projectManifestName);
@@ -124,7 +128,7 @@ export async function doctor(flags) {
     }
   }
 
-  log.step('Optional integrations');
+  if (!json) log.step('Optional integrations');
   try {
     const version = execSync('openspec --version', { stdio: ['ignore', 'pipe', 'ignore'] })
       .toString()
@@ -132,6 +136,12 @@ export async function doctor(flags) {
     ok('OpenSpec CLI', version);
   } catch {
     optional('OpenSpec CLI', 'not installed — optional, install with `npm i -g @fission-ai/openspec` if you want spec commands');
+  }
+
+  if (json) {
+    console.log(JSON.stringify({ summary, checks }, null, 2));
+    if (summary.fatal > 0) process.exit(1);
+    return;
   }
 
   log.step('Summary');

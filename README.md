@@ -133,6 +133,14 @@ company-cc uninstall
 
 # Actually remove all harness-managed files from ~/.claude/
 company-cc uninstall --confirm
+
+# CI check: exits non-zero if project instruction file is missing or still a stub
+company-cc ci
+
+# Machine-readable output for CI wrappers
+company-cc doctor --json
+company-cc status --json
+company-cc ci --json
 ```
 
 Files you've edited yourself are detected via SHA-256 in a target-specific manifest

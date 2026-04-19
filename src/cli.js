@@ -7,6 +7,7 @@ import { status } from './commands/status.js';
 import { diff } from './commands/diff.js';
 import { restore } from './commands/restore.js';
 import { uninstall } from './commands/uninstall.js';
+import { ci } from './commands/ci.js';
 import { log } from './lib/log.js';
 
 export const USAGE = `company-cc — AI coding harness installer
@@ -14,11 +15,12 @@ export const USAGE = `company-cc — AI coding harness installer
 Usage:
   company-cc init [--user] [--project] [--extras] [--force] [--target <claude|codex|both>]
   company-cc update [--dry-run] [--force] [--target <claude|codex|both>]
-  company-cc doctor [--target <claude|codex|both>]
-  company-cc status [--target <claude|codex|both>]
+  company-cc doctor [--target <claude|codex|both>] [--json]
+  company-cc status [--target <claude|codex|both>] [--json]
   company-cc diff <path> [--target <claude|codex>]
   company-cc restore <path> [--target <claude|codex>] [--force]
   company-cc uninstall [--target <claude|codex|both>] [--confirm]
+  company-cc ci [--target <claude|codex|both>] [--json]
 
 Options:
   --user       Install user-level assets to the selected target home
@@ -27,6 +29,7 @@ Options:
   --force      Overwrite locally modified files (default: skip with warning)
   --dry-run    Print what would change without touching files
   --confirm    For uninstall: actually remove files (default is dry-run)
+  --json       Machine-readable JSON output (for CI wrappers)
   --target     Installation target (default: claude)
   -h, --help   Show this help
 `;
@@ -34,8 +37,9 @@ Options:
 const VALID_FLAGS = {
   init:      new Set(['user', 'project', 'extras', 'force', 'target', 'dry-run']),
   update:    new Set(['force', 'target', 'dry-run']),
-  doctor:    new Set(['target']),
-  status:    new Set(['target']),
+  doctor:    new Set(['target', 'json']),
+  status:    new Set(['target', 'json']),
+  ci:        new Set(['target', 'json']),
   diff:      new Set(['target']),
   restore:   new Set(['target', 'force']),
   uninstall: new Set(['target', 'confirm']),
@@ -110,6 +114,8 @@ export async function run(argv = process.argv.slice(2)) {
       case 'uninstall':
         await uninstall(flags);
         return 0;
+      case 'ci':
+        return await ci(flags);
       default:
         log.error(`Unknown command: ${cmd}`);
         console.log(USAGE);

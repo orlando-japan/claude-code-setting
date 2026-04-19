@@ -504,3 +504,105 @@ test('update respects extras selection stored in manifest', async () => {
     });
   });
 });
+
+test('doctor --json emits valid JSON with checks array', async () => {
+  await withTempHome(async (home) => {
+    await withTempCwd(async () => {
+      await withEnv({ HOME: home }, () => captureConsole(() => run(['init', '--project'])));
+
+      const res = await withEnv({ HOME: home, PATH: '' }, () =>
+        captureConsole(() => run(['doctor', '--json']))
+      );
+      assert.equal(res.status, 0, res.stderr);
+      assert.equal(res.stderr, '');
+
+      const parsed = JSON.parse(res.stdout);
+      assert.ok(Array.isArray(parsed.checks), 'checks must be an array');
+      assert.ok(typeof parsed.summary === 'object', 'summary must be an object');
+      assert.ok('fatal' in parsed.summary);
+      assert.ok('stubs' in parsed.summary);
+      assert.ok(parsed.checks.some(c => c.name.includes('CLAUDE.md')));
+    });
+  });
+});
+
+test('status --json emits valid JSON with profiles array', async () => {
+  await withTempHome(async (home) => {
+    await withTempCwd(async () => {
+      await withEnv({ HOME: home }, () => captureConsole(() => run(['init', '--user'])));
+
+      const res = await withEnv({ HOME: home }, () =>
+        captureConsole(() => run(['status', '--json']))
+      );
+      assert.equal(res.status, 0, res.stderr);
+
+      const parsed = JSON.parse(res.stdout);
+      assert.equal(parsed.initialized, true);
+      assert.ok(Array.isArray(parsed.profiles));
+      assert.ok(parsed.profiles.length > 0);
+      const p = parsed.profiles[0];
+      assert.ok(Array.isArray(p.files));
+      assert.ok(p.files.every(f => ['unchanged', 'locally-modified', 'missing'].includes(f.state)));
+    });
+  });
+});
+
+test('ci exits 1 when no project manifest', async () => {
+  await withTempHome(async (home) => {
+    await withTempCwd(async () => {
+      const res = await withEnv({ HOME: home }, () =>
+        captureConsole(() => run(['ci']))
+      );
+      assert.equal(res.status, 1);
+      assert.match(res.stderr, /no manifest/);
+    });
+  });
+});
+
+test('ci exits 1 when project file is still a template stub', async () => {
+  await withTempHome(async (home) => {
+    await withTempCwd(async () => {
+      await withEnv({ HOME: home }, () => captureConsole(() => run(['init', '--project'])));
+
+      const res = await withEnv({ HOME: home }, () =>
+        captureConsole(() => run(['ci']))
+      );
+      assert.equal(res.status, 1);
+      assert.match(res.stderr, /template stubs/);
+    });
+  });
+});
+
+test('ci exits 0 when project file is customized', async () => {
+  await withTempHome(async (home) => {
+    await withTempCwd(async (cwd) => {
+      await withEnv({ HOME: home }, () => captureConsole(() => run(['init', '--project'])));
+      await writeFile(join(cwd, 'CLAUDE.md'), '# My Project\n\nCustom content.\n');
+
+      const res = await withEnv({ HOME: home }, () =>
+        captureConsole(() => run(['ci']))
+      );
+      assert.equal(res.status, 0, res.stderr);
+      assert.match(res.stdout, /customized/);
+    });
+  });
+});
+
+test('ci --json emits valid JSON', async () => {
+  await withTempHome(async (home) => {
+    await withTempCwd(async (cwd) => {
+      await withEnv({ HOME: home }, () => captureConsole(() => run(['init', '--project'])));
+      await writeFile(join(cwd, 'CLAUDE.md'), '# My Project\n\nCustom content.\n');
+
+      const res = await withEnv({ HOME: home }, () =>
+        captureConsole(() => run(['ci', '--json']))
+      );
+      assert.equal(res.status, 0, res.stderr);
+
+      const parsed = JSON.parse(res.stdout);
+      assert.equal(parsed.exitCode, 0);
+      assert.ok(Array.isArray(parsed.results));
+      assert.equal(parsed.results[0].status, 'ok');
+    });
+  });
+});
