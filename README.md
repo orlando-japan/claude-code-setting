@@ -291,6 +291,18 @@ Update walks each manifest, hashes every tracked file, and:
 - skips (with a warning) files you've edited locally — diff them and re-apply with `--force` when ready,
 - warns if `~/.claude` exists but the manifest is missing (e.g. accidentally deleted) and tells you to re-run `init` to restore it.
 
+## Team overlays
+
+Place a `.company-cc.json` in your home dir (for user-profile overlays) or project root (for project-profile overlays):
+
+```json
+{
+  "overlays": ["./team-templates", "@yourorg/harness-addons"]
+}
+```
+
+Files in the overlay directory mirror the target home structure and are installed after the base templates. See [Authoring overlays](docs/authoring-overlays.md) for the full reference.
+
 ## Docs
 
 - [Architecture](docs/architecture.md)
@@ -300,6 +312,7 @@ Update walks each manifest, hashes every tracked file, and:
 - [Authoring commands](docs/authoring-commands.md)
 - [Authoring agents](docs/authoring-agents.md)
 - [Authoring hooks](docs/authoring-hooks.md)
+- [Authoring overlays](docs/authoring-overlays.md)
 - [Contributing](CONTRIBUTING.md)
 
 ## License

@@ -1,9 +1,11 @@
 import { join } from 'node:path';
+import { homedir } from 'node:os';
 import { readFile, readdir, chmod } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import prompts from 'prompts';
 import { log } from '../lib/log.js';
+import { loadOverlays } from '../lib/config.js';
 import { listTemplateFiles as walkTree } from '../lib/template.js';
 import {
   TEMPLATES_ROOT,
@@ -107,15 +109,20 @@ export async function init(flags) {
   const targets = parseTargetFlag(flags.target);
   const selectedExtras = await resolveExtras(flags.extras);
 
+  const userOverlays = await loadOverlays(homedir());
+  const projectOverlays = await loadOverlays(process.cwd());
+
   for (const target of targets) {
     const cfg = getTargetConfig(target);
     if (doUser) {
       const srcRoots = [...cfg.userSrcs];
       if (selectedExtras) srcRoots.push(join(TEMPLATES_ROOT, 'extra'));
+      srcRoots.push(...userOverlays);
       await installProfile(target, 'user', srcRoots, cfg.userDest, cfg.userManifestName, flags, selectedExtras);
     }
     if (doProject) {
-      await installProfile(target, 'project', cfg.projectSrcs, cfg.projectDest, cfg.projectManifestName, flags, null);
+      const srcRoots = [...cfg.projectSrcs, ...projectOverlays];
+      await installProfile(target, 'project', srcRoots, cfg.projectDest, cfg.projectManifestName, flags, null);
     }
   }
 

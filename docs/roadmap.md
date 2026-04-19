@@ -110,7 +110,7 @@ Alias or subcommand that exits non-zero when the project-level instruction file 
 
 The strategic phase. Enables "company-wide" to mean one baseline with many team layers, not one monolith.
 
-### Team overlay layer
+### Team overlay layer ✓
 
 Add support for additional template sources layered on top of the company baseline.
 

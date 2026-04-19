@@ -1,8 +1,10 @@
 import { join } from 'node:path';
+import { homedir } from 'node:os';
 import { existsSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { log } from '../lib/log.js';
+import { loadOverlays } from '../lib/config.js';
 import {
   getManifestPath,
   TEMPLATES_ROOT,
@@ -52,6 +54,9 @@ export async function update(flags) {
     return;
   }
 
+  const userOverlays = await loadOverlays(homedir());
+  const projectOverlays = await loadOverlays(process.cwd());
+
   for (const t of targets) {
     const label = t.target === 'claude' ? `${t.name} profile` : `${t.target} ${t.name} profile`;
     log.step(`Updating ${label} → ${t.dest}${flags['dry-run'] ? ' (dry-run)' : ''}`);
@@ -67,6 +72,9 @@ export async function update(flags) {
         extrasSelection = Array.isArray(manifest.extras) ? manifest.extras : null;
       }
     }
+
+    const overlays = t.name === 'user' ? userOverlays : projectOverlays;
+    t.srcs.push(...overlays);
 
     const counts = { created: 0, updated: 0, unchanged: 0, 'skipped-modified': 0 };
     for (const src of t.srcs) {

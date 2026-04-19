@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
-import { mkdtemp, readFile, writeFile, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, writeFile, mkdir, rm } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { run } from '../src/cli.js';
@@ -603,6 +603,74 @@ test('ci --json emits valid JSON', async () => {
       assert.equal(parsed.exitCode, 0);
       assert.ok(Array.isArray(parsed.results));
       assert.equal(parsed.results[0].status, 'ok');
+    });
+  });
+});
+
+test('overlay: files from .company-cc.json overlays are installed', async () => {
+  await withTempHome(async (home) => {
+    await withTempCwd(async () => {
+      const claudeDir = join(home, '.claude');
+      const overlayDir = join(home, 'team-overlay');
+      await mkdir(join(overlayDir, 'rules'), { recursive: true });
+      await writeFile(join(overlayDir, 'rules', 'team-security.md'), '# Team security rules\n');
+
+      await writeFile(
+        join(home, '.company-cc.json'),
+        JSON.stringify({ overlays: ['./team-overlay'] }),
+      );
+
+      const res = await withEnv({ HOME: home }, () =>
+        captureConsole(() => run(['init', '--user']))
+      );
+      assert.equal(res.status, 0, res.stderr);
+
+      const installedPath = join(claudeDir, 'rules', 'team-security.md');
+      assert.equal(existsSync(installedPath), true, 'overlay file should be installed');
+
+      const manifest = JSON.parse(await readFile(join(claudeDir, MANIFEST_NAMES.claude), 'utf8'));
+      const record = manifest.files['rules/team-security.md'];
+      assert.ok(record, 'overlay file should be tracked in manifest');
+      assert.match(record.hash, /^sha256:/);
+      assert.equal(record.source, overlayDir);
+    });
+  });
+});
+
+test('overlay: update re-applies overlay files', async () => {
+  await withTempHome(async (home) => {
+    await withTempCwd(async () => {
+      const claudeDir = join(home, '.claude');
+      const overlayDir = join(home, 'team-overlay');
+      await mkdir(join(overlayDir, 'rules'), { recursive: true });
+      await writeFile(join(overlayDir, 'rules', 'team-security.md'), '# Team security rules\n');
+      await writeFile(join(home, '.company-cc.json'), JSON.stringify({ overlays: ['./team-overlay'] }));
+
+      await withEnv({ HOME: home }, () => captureConsole(() => run(['init', '--user'])));
+      await rm(join(claudeDir, 'rules', 'team-security.md'));
+
+      const res = await withEnv({ HOME: home }, () =>
+        captureConsole(() => run(['update']))
+      );
+      assert.equal(res.status, 0, res.stderr);
+      assert.equal(existsSync(join(claudeDir, 'rules', 'team-security.md')), true);
+    });
+  });
+});
+
+test('overlay: missing overlay path warns and continues', async () => {
+  await withTempHome(async (home) => {
+    await withTempCwd(async () => {
+      await writeFile(
+        join(home, '.company-cc.json'),
+        JSON.stringify({ overlays: ['./no-such-overlay'] }),
+      );
+
+      const res = await withEnv({ HOME: home }, () =>
+        captureConsole(() => run(['init', '--user']))
+      );
+      assert.equal(res.status, 0, res.stderr);
+      assert.match(res.stdout, /overlay not found/);
     });
   });
 });
