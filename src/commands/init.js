@@ -1,5 +1,5 @@
 import { join } from 'node:path';
-import { readFile, chmod } from 'node:fs/promises';
+import { readFile, readdir, chmod } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { log } from '../lib/log.js';
@@ -14,20 +14,46 @@ import {
 } from '../lib/template.js';
 import { getTargetConfig, parseTargetFlag } from '../lib/targets.js';
 
+async function resolveExtras(extrasFlag) {
+  if (!extrasFlag) return null;
+  const skillsDir = join(TEMPLATES_ROOT, 'extra', 'skills');
+  if (!existsSync(skillsDir)) {
+    log.warn('extras directory not found in package, skipping');
+    return null;
+  }
+  const entries = await readdir(skillsDir, { withFileTypes: true });
+  const available = entries.filter(e => e.isDirectory()).map(e => e.name).sort();
+  if (extrasFlag === true) return available;
+  const requested = String(extrasFlag).split(',').map(s => s.trim()).filter(Boolean);
+  const unknown = requested.filter(n => !available.includes(n));
+  if (unknown.length > 0) {
+    throw new Error(`Unknown extras: ${unknown.join(', ')}\nAvailable: ${available.join(', ')}`);
+  }
+  return requested;
+}
+
+function filterExtrasFiles(files, selected) {
+  return files.filter(rel =>
+    !rel.startsWith('skills/') ||
+    selected.some(name => rel.startsWith(`skills/${name}/`))
+  );
+}
+
 export async function init(flags) {
   const doUser = flags.user || (!flags.user && !flags.project);
   const doProject = flags.project || (!flags.user && !flags.project);
   const targets = parseTargetFlag(flags.target);
+  const selectedExtras = await resolveExtras(flags.extras);
 
   for (const target of targets) {
     const cfg = getTargetConfig(target);
     if (doUser) {
       const srcRoots = [...cfg.userSrcs];
-      if (flags.extras) srcRoots.push(join(TEMPLATES_ROOT, 'extra'));
-      await installProfile(target, 'user', srcRoots, cfg.userDest, cfg.userManifestName, flags);
+      if (selectedExtras) srcRoots.push(join(TEMPLATES_ROOT, 'extra'));
+      await installProfile(target, 'user', srcRoots, cfg.userDest, cfg.userManifestName, flags, selectedExtras);
     }
     if (doProject) {
-      await installProfile(target, 'project', cfg.projectSrcs, cfg.projectDest, cfg.projectManifestName, flags);
+      await installProfile(target, 'project', cfg.projectSrcs, cfg.projectDest, cfg.projectManifestName, flags, null);
     }
   }
 
@@ -38,15 +64,19 @@ export async function init(flags) {
   log.dim('  3. Run `company-cc doctor` to verify');
 }
 
-async function installProfile(target, name, srcRoots, destRoot, manifestName, flags) {
+async function installProfile(target, name, srcRoots, destRoot, manifestName, flags, selectedExtras) {
   const label = target === 'claude' ? `${name} profile` : `${target} ${name} profile`;
   log.step(`Installing ${label} → ${destRoot}`);
   if (!flags['dry-run']) await ensureWritable(destRoot);
   const manifest = await readManifest(destRoot, manifestName);
 
+  const extraDir = join(TEMPLATES_ROOT, 'extra');
   const counts = { created: 0, updated: 0, unchanged: 0, 'skipped-modified': 0 };
   for (const srcRoot of srcRoots) {
-    const files = await listTemplateFiles(srcRoot);
+    const allFiles = await listTemplateFiles(srcRoot);
+    const files = (selectedExtras && srcRoot === extraDir)
+      ? filterExtrasFiles(allFiles, selectedExtras)
+      : allFiles;
     for (const rel of files) {
       const result = await applyTemplateFile(srcRoot, destRoot, rel, manifest, {
         force: flags.force,
@@ -64,7 +94,9 @@ async function installProfile(target, name, srcRoots, destRoot, manifestName, fl
   manifest.version = await getPackageVersion();
   manifest.installed = new Date().toISOString();
   manifest.target = target;
-  if (name === 'user') manifest.extras = !!flags.extras || manifest.extras === true;
+  if (name === 'user' && selectedExtras !== null) {
+    manifest.extras = selectedExtras;
+  }
   if (!flags['dry-run']) {
     await writeManifest(destRoot, manifestName, manifest);
     await makeHooksExecutable(destRoot);

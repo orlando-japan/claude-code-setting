@@ -98,8 +98,11 @@ company-cc init --project
 # Install both project instruction files
 company-cc init --project --target both
 
-# Add the 7 opt-in advanced skills (ops, frontend, infra, evals)
+# Add all 7 opt-in advanced skills
 company-cc init --user --extras
+
+# Add only specific skills (use skill directory names)
+company-cc init --user --extras=evals-design,infra-as-code
 
 # Pull latest templates (skips files you've edited locally;
 # remembers --extras choice from your manifest)

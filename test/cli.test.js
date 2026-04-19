@@ -417,3 +417,74 @@ test('uninstall --confirm removes tracked files and manifest', async () => {
     });
   });
 });
+
+test('init --extras installs all extra skills', async () => {
+  await withTempHome(async (home) => {
+    await withTempCwd(async () => {
+      const claudeDir = join(home, '.claude');
+
+      const res = await withEnv({ HOME: home }, () =>
+        captureConsole(() => run(['init', '--user', '--extras']))
+      );
+      assert.equal(res.status, 0, res.stderr);
+      assert.equal(existsSync(join(claudeDir, 'skills', 'evals-design', 'SKILL.md')), true);
+      assert.equal(existsSync(join(claudeDir, 'skills', 'infra-as-code', 'SKILL.md')), true);
+
+      const manifest = JSON.parse(await readFile(join(claudeDir, MANIFEST_NAMES.claude), 'utf8'));
+      assert.ok(Array.isArray(manifest.extras), 'extras should be stored as array');
+      assert.ok(manifest.extras.includes('evals-design'));
+    });
+  });
+});
+
+test('init --extras=evals-design installs only that skill', async () => {
+  await withTempHome(async (home) => {
+    await withTempCwd(async () => {
+      const claudeDir = join(home, '.claude');
+
+      const res = await withEnv({ HOME: home }, () =>
+        captureConsole(() => run(['init', '--user', '--extras=evals-design']))
+      );
+      assert.equal(res.status, 0, res.stderr);
+      assert.equal(existsSync(join(claudeDir, 'skills', 'evals-design', 'SKILL.md')), true);
+      assert.equal(existsSync(join(claudeDir, 'skills', 'infra-as-code', 'SKILL.md')), false);
+
+      const manifest = JSON.parse(await readFile(join(claudeDir, MANIFEST_NAMES.claude), 'utf8'));
+      assert.deepEqual(manifest.extras, ['evals-design']);
+    });
+  });
+});
+
+test('init --extras=unknown exits 1 with helpful error', async () => {
+  await withTempHome(async (home) => {
+    await withTempCwd(async () => {
+      const res = await withEnv({ HOME: home }, () =>
+        captureConsole(() => run(['init', '--user', '--extras=no-such-skill']))
+      );
+      assert.equal(res.status, 1);
+      assert.match(res.stderr, /Unknown extras/);
+      assert.match(res.stderr, /Available:/);
+    });
+  });
+});
+
+test('update respects extras selection stored in manifest', async () => {
+  await withTempHome(async (home) => {
+    await withTempCwd(async () => {
+      const claudeDir = join(home, '.claude');
+
+      await withEnv({ HOME: home }, () =>
+        captureConsole(() => run(['init', '--user', '--extras=evals-design']))
+      );
+
+      await rm(join(claudeDir, 'skills', 'evals-design', 'SKILL.md'));
+
+      const res = await withEnv({ HOME: home }, () =>
+        captureConsole(() => run(['update']))
+      );
+      assert.equal(res.status, 0, res.stderr);
+      assert.equal(existsSync(join(claudeDir, 'skills', 'evals-design', 'SKILL.md')), true);
+      assert.equal(existsSync(join(claudeDir, 'skills', 'infra-as-code', 'SKILL.md')), false);
+    });
+  });
+});

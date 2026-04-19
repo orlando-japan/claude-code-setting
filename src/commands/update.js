@@ -56,18 +56,27 @@ export async function update(flags) {
     const label = t.target === 'claude' ? `${t.name} profile` : `${t.target} ${t.name} profile`;
     log.step(`Updating ${label} → ${t.dest}${flags['dry-run'] ? ' (dry-run)' : ''}`);
     const manifest = await readManifest(t.dest, t.manifestName);
+    const extraDir = join(TEMPLATES_ROOT, 'extra');
+    let extrasSelection = null; // null = install all extras; array = install only those
+
     if (t.name === 'user' && manifest.extras) {
-      const extraDir = join(TEMPLATES_ROOT, 'extra');
       if (!existsSync(extraDir)) {
         log.warn(`extras were enabled at install time but template directory is missing: ${extraDir}`);
       } else {
         t.srcs.push(extraDir);
+        extrasSelection = Array.isArray(manifest.extras) ? manifest.extras : null;
       }
     }
 
     const counts = { created: 0, updated: 0, unchanged: 0, 'skipped-modified': 0 };
     for (const src of t.srcs) {
-      const files = await listTemplateFiles(src);
+      const allFiles = await listTemplateFiles(src);
+      const files = (extrasSelection && src === extraDir)
+        ? allFiles.filter(rel =>
+            !rel.startsWith('skills/') ||
+            extrasSelection.some(name => rel.startsWith(`skills/${name}/`))
+          )
+        : allFiles;
       for (const rel of files) {
         const result = await applyTemplateFile(src, t.dest, rel, manifest, {
           force: flags.force,

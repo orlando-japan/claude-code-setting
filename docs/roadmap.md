@@ -69,9 +69,7 @@ company-cc uninstall [--target <claude|codex|both>] [--confirm]
 
 Polish the experience for template authors and team operators.
 
-### Fine-grained `--extras`
-
-Change `--extras` from a boolean flag to an optional comma-separated list:
+### Fine-grained `--extras` ✓
 
 ```
 company-cc init --extras              # install all extras (current behaviour)

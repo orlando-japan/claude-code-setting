@@ -23,7 +23,7 @@ Usage:
 Options:
   --user       Install user-level assets to the selected target home
   --project    Install project-level assets to <cwd>
-  --extras     Also install opt-in advanced skills (ops, frontend, infra, evals)
+  --extras[=s1,s2]  Install opt-in skills: bare flag = all; =name,name = selected only
   --force      Overwrite locally modified files (default: skip with warning)
   --dry-run    Print what would change without touching files
   --confirm    For uninstall: actually remove files (default is dry-run)
