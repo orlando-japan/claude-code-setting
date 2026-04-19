@@ -160,7 +160,7 @@ for Codex by default) and skipped on update unless you pass `--force`. New templ
 
 | Layer | Content |
 |---|---|
-| **Shared** (`templates/shared/`) | 5 global rules plus 33 core skills installed for both Claude and Codex targets |
+| **Shared** (`templates/shared/`) | 9 global rules plus 33 core skills installed for both Claude and Codex targets |
 | **Claude-only** (`templates/claude-user/`, `templates/claude-project/`) | `CLAUDE.md`, slash commands, agents, settings, MCP stub, hooks |
 | **Codex-only** (`templates/codex-user/`, `templates/codex-project/`) | `AGENTS.md` user and project scaffolds |
 | **Extras** (`templates/extra/`) | 7 opt-in advanced skills (`--extras`) shared across targets |
@@ -173,7 +173,8 @@ Once installed, the harness loads automatically every time you start Claude Code
 
 Just start Claude Code and make a request. Behind the scenes the session picks up:
 - The four coding principles in `CLAUDE.md` (Think → Simplicity → Surgical → Goal-driven)
-- Five global rules (`code-style`, `coding-principles`, `security`, `commit-conventions`, `testing`)
+- Seven always-on rules: `coding-principles`, `code-style`, `security`, `error-handling`, `observability`, `commit-conventions`, `testing`
+- Two opt-in rules available for teams that need them: `api-design`, `data-access`
 - 33 core skills, chosen on demand by the model based on the task
 - `PreToolUse` guard hooks on `Bash` and `Write|Edit|MultiEdit` that block obviously-dangerous commands
 

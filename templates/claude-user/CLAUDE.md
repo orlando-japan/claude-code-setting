@@ -14,6 +14,8 @@ This file is loaded into every Claude Code session for this user. It applies on 
 @rules/coding-principles.md
 @rules/code-style.md
 @rules/security.md
+@rules/error-handling.md
+@rules/observability.md
 @rules/commit-conventions.md
 @rules/testing.md
 
