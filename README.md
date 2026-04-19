@@ -317,6 +317,7 @@ Files in the overlay directory mirror the target home structure and are installe
 
 - [Architecture](docs/architecture.md)
 - [Roadmap](docs/roadmap.md)
+- [Rules reference](docs/rules-reference.md)
 - [Authoring rules](docs/authoring-rules.md)
 - [Authoring skills](docs/authoring-skills.md)
 - [Authoring commands](docs/authoring-commands.md)
