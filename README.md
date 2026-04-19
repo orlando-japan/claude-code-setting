@@ -115,6 +115,21 @@ company-cc update --dry-run
 # optional integrations, and "not initialized yet" guidance.
 # Also validates settings.json has required "permissions" key.
 company-cc doctor
+
+# Show every tracked file and its state (unchanged / locally-modified / missing)
+company-cc status
+
+# Show a unified diff between your local copy and the template version
+company-cc diff rules/code-style.md
+
+# Restore a single file to the template version (prompts for confirmation)
+company-cc restore rules/code-style.md
+
+# Preview what uninstall would remove (no files touched)
+company-cc uninstall
+
+# Actually remove all harness-managed files from ~/.claude/
+company-cc uninstall --confirm
 ```
 
 Files you've edited yourself are detected via SHA-256 in a target-specific manifest

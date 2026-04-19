@@ -13,13 +13,18 @@ Before accepting any new feature, check it against the design philosophy in `doc
 
 ---
 
-## Phase 1 — Observability & safe rollback
+## Phase 1 — Observability & safe rollback ✓ shipped in v0.2.0
 
 The manifest already tracks every file's SHA-256, but users cannot see that information. This phase adds a thin layer of read access on top of the existing model.
 
 Each command is independently shippable; none touches core install logic.
 
-### `status` command
+Manifest schema extended in v0.2.0: file records are now `{ hash, source }` objects.
+Old string-hash manifests remain readable via `getFileRecord` for backwards compat.
+The `source` field records which template directory each file came from — required by
+`diff` and `restore`, and pre-positions Phase 3's overlay layer.
+
+### `status` command ✓
 
 List every manifest-tracked file with its current state:
 
@@ -36,9 +41,7 @@ Usage:
 company-cc status [--target <claude|codex|both>]
 ```
 
-### `diff <path>` command
-
-Show a unified diff between the locally-modified file and the template version the harness shipped.
+### `diff <path>` command ✓ between the locally-modified file and the template version the harness shipped.
 
 ```
 company-cc diff rules/coding-principles.md
@@ -46,9 +49,7 @@ company-cc diff rules/coding-principles.md
 
 Read-only. Enables informed decisions before `--force`.
 
-### `restore <path>` command
-
-Overwrite one file with the template version and update the manifest entry. Asks for confirmation before writing.
+### `restore <path>` command ✓ with the template version and update the manifest entry. Asks for confirmation before writing.
 
 ```
 company-cc restore rules/coding-principles.md
@@ -56,9 +57,7 @@ company-cc restore rules/coding-principles.md
 
 Complements `diff`: the natural next action after reviewing a diff.
 
-### `uninstall` command
-
-Remove all manifest-tracked files from a target home, leave user-added files untouched, then delete the manifest. Runs as a dry-run by default; requires `--confirm` to execute.
+### `uninstall` command ✓ from a target home, leave user-added files untouched, then delete the manifest. Runs as a dry-run by default; requires `--confirm` to execute.
 
 ```
 company-cc uninstall [--target <claude|codex|both>] [--confirm]
