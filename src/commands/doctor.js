@@ -72,8 +72,13 @@ export async function doctor(flags) {
     const settingsPath = join(cfg.userDest, 'settings.json');
     if (existsSync(settingsPath)) {
       try {
-        JSON.parse(await readFile(settingsPath, 'utf8'));
+        const settings = JSON.parse(await readFile(settingsPath, 'utf8'));
         ok(`${target}/settings.json is valid JSON`, 'parsed');
+        if (!settings.permissions || typeof settings.permissions !== 'object') {
+          fatal(`${target}/settings.json`, 'missing required "permissions" key — re-run `company-cc init --user --force`');
+        } else {
+          ok(`${target}/settings.json permissions`, 'present');
+        }
       } catch (err) {
         fatal(`${target}/settings.json is valid JSON`, err.message);
       }

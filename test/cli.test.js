@@ -87,6 +87,13 @@ test('cli fails on unknown command', async () => {
   assert.match(res.stderr, /Unknown command: nope/);
 });
 
+test('cli fails on unknown flag with helpful message', async () => {
+  const res = await captureConsole(() => run(['init', '--trget', 'claude']));
+  assert.equal(res.status, 1);
+  assert.match(res.stderr, /Unknown flag: --trget/);
+  assert.match(res.stdout, /Usage:/);
+});
+
 test('doctor reports uninitialized user profile without fatal failure', async () => {
   await withTempHome(async (home) => {
     const res = await withEnv({ HOME: home, PATH: '' }, () =>
@@ -100,6 +107,18 @@ test('doctor reports uninitialized user profile without fatal failure', async ()
     assert.match(res.stdout, /Optional integrations/);
     assert.match(res.stdout, /optional integration\(s\) missing/);
     assert.equal(res.stderr, '');
+  });
+});
+
+test('init --user --dry-run writes no files to disk', async () => {
+  await withTempHome(async (home) => {
+    const claudeDir = join(home, '.claude');
+    const res = await withEnv({ HOME: home }, () =>
+      captureConsole(() => run(['init', '--user', '--dry-run']))
+    );
+    assert.equal(res.status, 0, res.stderr);
+    assert.match(res.stdout, /created/);
+    assert.equal(existsSync(claudeDir), false, 'dry-run must not create .claude directory');
   });
 });
 

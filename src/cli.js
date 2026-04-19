@@ -22,6 +22,12 @@ Options:
   -h, --help   Show this help
 `;
 
+const VALID_FLAGS = {
+  init:   new Set(['user', 'project', 'extras', 'force', 'target', 'dry-run']),
+  update: new Set(['force', 'target', 'dry-run']),
+  doctor: new Set(['target']),
+};
+
 export function parseFlags(argv) {
   const flags = {};
   for (let i = 0; i < argv.length; i++) {
@@ -51,6 +57,17 @@ export async function run(argv = process.argv.slice(2)) {
   if (!cmd || cmd === '-h' || cmd === '--help') {
     console.log(USAGE);
     return 0;
+  }
+
+  const knownFlags = VALID_FLAGS[cmd];
+  if (knownFlags) {
+    for (const key of Object.keys(flags)) {
+      if (!knownFlags.has(key)) {
+        log.error(`Unknown flag: --${key}`);
+        console.log(USAGE);
+        return 1;
+      }
+    }
   }
 
   try {

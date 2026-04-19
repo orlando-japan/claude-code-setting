@@ -1,4 +1,4 @@
-import { readdir, readFile, writeFile, mkdir } from 'node:fs/promises';
+import { readdir, readFile, writeFile, mkdir, unlink } from 'node:fs/promises';
 import { dirname, join, relative, sep } from 'node:path';
 import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -21,6 +21,17 @@ export async function listTemplateFiles(root) {
   }
   await walk(root);
   return out.sort();
+}
+
+export async function ensureWritable(dir) {
+  await mkdir(dir, { recursive: true });
+  const probe = join(dir, '.company-cc-probe');
+  try {
+    await writeFile(probe, '');
+    await unlink(probe);
+  } catch (err) {
+    throw new Error(`Destination directory is not writable: ${dir} (${err.message})`);
+  }
 }
 
 export function getManifestPath(destRoot, manifestName) {

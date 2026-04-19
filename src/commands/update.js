@@ -19,7 +19,9 @@ export async function update(flags) {
 
   for (const target of selectedTargets) {
     const cfg = getTargetConfig(target);
-    if (existsSync(getManifestPath(cfg.userDest, cfg.userManifestName))) {
+
+    const userManifestExists = existsSync(getManifestPath(cfg.userDest, cfg.userManifestName));
+    if (userManifestExists) {
       targets.push({
         target,
         name: 'user',
@@ -27,7 +29,11 @@ export async function update(flags) {
         dest: cfg.userDest,
         manifestName: cfg.userManifestName,
       });
+    } else if (existsSync(cfg.userDest)) {
+      const flag = target === 'claude' ? '--user' : `--user --target ${target}`;
+      log.warn(`manifest missing in ${cfg.userDest} — run \`company-cc init ${flag}\` to restore`);
     }
+
     if (existsSync(getManifestPath(cfg.projectDest, cfg.projectManifestName))) {
       targets.push({
         target,
@@ -51,7 +57,12 @@ export async function update(flags) {
     log.step(`Updating ${label} → ${t.dest}${flags['dry-run'] ? ' (dry-run)' : ''}`);
     const manifest = await readManifest(t.dest, t.manifestName);
     if (t.name === 'user' && manifest.extras) {
-      t.srcs.push(join(TEMPLATES_ROOT, 'extra'));
+      const extraDir = join(TEMPLATES_ROOT, 'extra');
+      if (!existsSync(extraDir)) {
+        log.warn(`extras were enabled at install time but template directory is missing: ${extraDir}`);
+      } else {
+        t.srcs.push(extraDir);
+      }
     }
 
     const counts = { created: 0, updated: 0, unchanged: 0, 'skipped-modified': 0 };

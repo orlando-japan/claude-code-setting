@@ -10,6 +10,7 @@ import {
   readManifest,
   writeManifest,
   applyTemplateFile,
+  ensureWritable,
 } from '../lib/template.js';
 import { getTargetConfig, parseTargetFlag } from '../lib/targets.js';
 
@@ -40,6 +41,7 @@ export async function init(flags) {
 async function installProfile(target, name, srcRoots, destRoot, manifestName, flags) {
   const label = target === 'claude' ? `${name} profile` : `${target} ${name} profile`;
   log.step(`Installing ${label} → ${destRoot}`);
+  if (!flags['dry-run']) await ensureWritable(destRoot);
   const manifest = await readManifest(destRoot, manifestName);
 
   const counts = { created: 0, updated: 0, unchanged: 0, 'skipped-modified': 0 };

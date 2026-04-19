@@ -108,8 +108,12 @@ company-cc update
 # Force overwrite of files you've locally modified
 company-cc update --force
 
-# Verify install state. Doctor now separates fatal issues,
+# Preview what would change without writing any files
+company-cc update --dry-run
+
+# Verify install state. Doctor separates fatal issues,
 # optional integrations, and "not initialized yet" guidance.
+# Also validates settings.json has required "permissions" key.
 company-cc doctor
 ```
 
@@ -240,6 +244,8 @@ Before calling this repo “ready for release”, verify:
 - isolated real install/update smoke passes with a temporary `HOME`
 - `npm pack --dry-run` includes only the intended publish payload
 - `.claude/settings.local.json` is not committed
+- unknown `--flag` typos are rejected with a clear error before install runs
+- `update` correctly warns when manifest is missing but home directory exists
 - Codex and Claude target templates still install into separate homes without manifest collisions
 - package version is bumped intentionally
 - `package.json` metadata (`repository`, `homepage`, `bugs`, `bin`, `files`) still matches reality
@@ -256,13 +262,18 @@ Update walks each manifest, hashes every tracked file, and:
 
 - writes new files added by the upgrade,
 - overwrites template files you haven't touched,
-- skips (with a warning) files you've edited locally — diff them and re-apply with `--force` when ready.
+- skips (with a warning) files you've edited locally — diff them and re-apply with `--force` when ready,
+- warns if `~/.claude` exists but the manifest is missing (e.g. accidentally deleted) and tells you to re-run `init` to restore it.
 
 ## Docs
 
 - [Architecture](docs/architecture.md)
+- [Roadmap](docs/roadmap.md)
 - [Authoring rules](docs/authoring-rules.md)
 - [Authoring skills](docs/authoring-skills.md)
+- [Authoring commands](docs/authoring-commands.md)
+- [Authoring agents](docs/authoring-agents.md)
+- [Authoring hooks](docs/authoring-hooks.md)
 - [Contributing](CONTRIBUTING.md)
 
 ## License
