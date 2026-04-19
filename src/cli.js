@@ -9,6 +9,7 @@ import { diff } from './commands/diff.js';
 import { restore } from './commands/restore.js';
 import { uninstall } from './commands/uninstall.js';
 import { ci } from './commands/ci.js';
+import { rollback } from './commands/rollback.js';
 import { log } from './lib/log.js';
 import { loadCustomTargets } from './lib/config.js';
 
@@ -22,6 +23,7 @@ Usage:
   company-cc diff <path> [--target <claude|codex>]
   company-cc restore <path> [--target <claude|codex>] [--force]
   company-cc uninstall [--target <claude|codex|both>] [--confirm]
+  company-cc rollback [--target <claude|codex|both>] [--confirm] [--list]
   company-cc ci [--target <claude|codex|both>] [--json]
 
 Options:
@@ -45,6 +47,7 @@ const VALID_FLAGS = {
   diff:      new Set(['target']),
   restore:   new Set(['target', 'force']),
   uninstall: new Set(['target', 'confirm']),
+  rollback:  new Set(['target', 'confirm', 'list']),
 };
 
 export function parseFlags(argv) {
@@ -117,6 +120,9 @@ export async function run(argv = process.argv.slice(2)) {
         return await restore(flags, positional);
       case 'uninstall':
         await uninstall(flags);
+        return 0;
+      case 'rollback':
+        await rollback(flags);
         return 0;
       case 'ci':
         return await ci(flags);

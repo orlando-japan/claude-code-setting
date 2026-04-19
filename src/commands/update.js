@@ -5,6 +5,7 @@ import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { log } from '../lib/log.js';
 import { loadOverlays } from '../lib/config.js';
+import { createBackup } from '../lib/backup.js';
 import {
   getManifestPath,
   TEMPLATES_ROOT,
@@ -75,6 +76,15 @@ export async function update(flags) {
 
     const overlays = t.name === 'user' ? userOverlays : projectOverlays;
     t.srcs.push(...overlays);
+
+    if (t.name === 'user' && !flags['dry-run']) {
+      try {
+        const backupPath = await createBackup(t.dest, t.manifestName, manifest);
+        log.dim(`  backup: ${backupPath}`);
+      } catch (err) {
+        log.warn(`backup failed (${err.message}) — continuing without backup`);
+      }
+    }
 
     const counts = { created: 0, updated: 0, unchanged: 0, 'skipped-modified': 0 };
     for (const src of t.srcs) {

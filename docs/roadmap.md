@@ -143,11 +143,11 @@ Candidate interface: `company-cc.targets.<name>` field in a package's `package.j
 
 Lower priority. Add when a clear need emerges.
 
-### `backup` / `rollback`
+### `backup` / `rollback` ✓
 
 Before each `update`, snapshot the current state of all tracked files under `~/.claude/.company-cc-backups/<timestamp>/`. Add `company-cc rollback` to restore from the most recent backup.
 
-### Template author linter
+### Template author linter ✓
 
 Dev-time tool (potentially only as an npm test script) that validates:
 

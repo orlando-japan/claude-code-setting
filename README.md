@@ -134,6 +134,15 @@ company-cc uninstall
 # Actually remove all harness-managed files from ~/.claude/
 company-cc uninstall --confirm
 
+# Show available backups (update creates one automatically before each run)
+company-cc rollback --list
+
+# Preview what rollback would restore (dry-run)
+company-cc rollback
+
+# Restore from the most recent backup
+company-cc rollback --confirm
+
 # CI check: exits non-zero if project instruction file is missing or still a stub
 company-cc ci
 

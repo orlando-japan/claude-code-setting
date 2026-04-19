@@ -710,3 +710,96 @@ test('overlay: missing overlay path warns and continues', async () => {
     });
   });
 });
+
+test('update creates a backup of the user profile before applying changes', async () => {
+  await withTempHome(async (home) => {
+    await withTempCwd(async () => {
+      const claudeDir = join(home, '.claude');
+      const backupsDir = join(claudeDir, '.company-cc-backups');
+
+      await withEnv({ HOME: home }, () => captureConsole(() => run(['init', '--user'])));
+      assert.equal(existsSync(backupsDir), false, 'no backup before first update');
+
+      const res = await withEnv({ HOME: home }, () =>
+        captureConsole(() => run(['update']))
+      );
+      assert.equal(res.status, 0, res.stderr);
+      assert.equal(existsSync(backupsDir), true, 'backup dir created after update');
+
+      const entries = await import('node:fs/promises').then(m => m.readdir(backupsDir));
+      assert.ok(entries.length >= 1, 'at least one backup exists');
+    });
+  });
+});
+
+test('rollback --list shows available backups', async () => {
+  await withTempHome(async (home) => {
+    await withTempCwd(async () => {
+      await withEnv({ HOME: home }, () => captureConsole(() => run(['init', '--user'])));
+      await withEnv({ HOME: home }, () => captureConsole(() => run(['update'])));
+
+      const res = await withEnv({ HOME: home }, () =>
+        captureConsole(() => run(['rollback', '--list']))
+      );
+      assert.equal(res.status, 0, res.stderr);
+      assert.match(res.stdout, /backup/i);
+    });
+  });
+});
+
+test('rollback dry-run shows files without restoring', async () => {
+  await withTempHome(async (home) => {
+    await withTempCwd(async () => {
+      const claudeDir = join(home, '.claude');
+
+      await withEnv({ HOME: home }, () => captureConsole(() => run(['init', '--user'])));
+      await withEnv({ HOME: home }, () => captureConsole(() => run(['update'])));
+
+      // delete a file after backup was created
+      const target = join(claudeDir, 'settings.json');
+      await rm(target);
+
+      const res = await withEnv({ HOME: home }, () =>
+        captureConsole(() => run(['rollback']))
+      );
+      assert.equal(res.status, 0, res.stderr);
+      assert.match(res.stdout, /would restore/);
+      assert.equal(existsSync(target), false, 'dry-run must not restore files');
+    });
+  });
+});
+
+test('rollback --confirm restores files from the most recent backup', async () => {
+  await withTempHome(async (home) => {
+    await withTempCwd(async () => {
+      const claudeDir = join(home, '.claude');
+
+      await withEnv({ HOME: home }, () => captureConsole(() => run(['init', '--user'])));
+      const original = await readFile(join(claudeDir, 'settings.json'), 'utf8');
+
+      await withEnv({ HOME: home }, () => captureConsole(() => run(['update'])));
+
+      // corrupt the file after backup
+      await writeFile(join(claudeDir, 'settings.json'), '{ "corrupted": true }');
+
+      const res = await withEnv({ HOME: home }, () =>
+        captureConsole(() => run(['rollback', '--confirm']))
+      );
+      assert.equal(res.status, 0, res.stderr);
+      assert.match(res.stdout, /restored/);
+      assert.equal(await readFile(join(claudeDir, 'settings.json'), 'utf8'), original);
+    });
+  });
+});
+
+test('rollback warns when no backups exist', async () => {
+  await withTempHome(async (home) => {
+    await withTempCwd(async () => {
+      const res = await withEnv({ HOME: home }, () =>
+        captureConsole(() => run(['rollback']))
+      );
+      assert.equal(res.status, 0);
+      assert.match(res.stdout, /no backups found/);
+    });
+  });
+});
