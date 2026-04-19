@@ -3,6 +3,10 @@ import { pathToFileURL } from 'node:url';
 import { init } from './commands/init.js';
 import { update } from './commands/update.js';
 import { doctor } from './commands/doctor.js';
+import { status } from './commands/status.js';
+import { diff } from './commands/diff.js';
+import { restore } from './commands/restore.js';
+import { uninstall } from './commands/uninstall.js';
 import { log } from './lib/log.js';
 
 export const USAGE = `company-cc — AI coding harness installer
@@ -11,6 +15,10 @@ Usage:
   company-cc init [--user] [--project] [--extras] [--force] [--target <claude|codex|both>]
   company-cc update [--dry-run] [--force] [--target <claude|codex|both>]
   company-cc doctor [--target <claude|codex|both>]
+  company-cc status [--target <claude|codex|both>]
+  company-cc diff <path> [--target <claude|codex>]
+  company-cc restore <path> [--target <claude|codex>] [--force]
+  company-cc uninstall [--target <claude|codex|both>] [--confirm]
 
 Options:
   --user       Install user-level assets to the selected target home
@@ -18,14 +26,19 @@ Options:
   --extras     Also install opt-in advanced skills (ops, frontend, infra, evals)
   --force      Overwrite locally modified files (default: skip with warning)
   --dry-run    Print what would change without touching files
+  --confirm    For uninstall: actually remove files (default is dry-run)
   --target     Installation target (default: claude)
   -h, --help   Show this help
 `;
 
 const VALID_FLAGS = {
-  init:   new Set(['user', 'project', 'extras', 'force', 'target', 'dry-run']),
-  update: new Set(['force', 'target', 'dry-run']),
-  doctor: new Set(['target']),
+  init:      new Set(['user', 'project', 'extras', 'force', 'target', 'dry-run']),
+  update:    new Set(['force', 'target', 'dry-run']),
+  doctor:    new Set(['target']),
+  status:    new Set(['target']),
+  diff:      new Set(['target']),
+  restore:   new Set(['target', 'force']),
+  uninstall: new Set(['target', 'confirm']),
 };
 
 export function parseFlags(argv) {
@@ -54,6 +67,12 @@ export async function run(argv = process.argv.slice(2)) {
   const [cmd, ...rest] = argv;
   const flags = parseFlags(rest);
 
+  // positional args: non-flag tokens that weren't consumed as flag values
+  const positional = rest.filter((token, i) => {
+    if (token.startsWith('-')) return false;
+    return rest[i - 1] !== '--target';
+  });
+
   if (!cmd || cmd === '-h' || cmd === '--help') {
     console.log(USAGE);
     return 0;
@@ -80,6 +99,16 @@ export async function run(argv = process.argv.slice(2)) {
         return 0;
       case 'doctor':
         await doctor(flags);
+        return 0;
+      case 'status':
+        await status(flags);
+        return 0;
+      case 'diff':
+        return await diff(flags, positional);
+      case 'restore':
+        return await restore(flags, positional);
+      case 'uninstall':
+        await uninstall(flags);
         return 0;
       default:
         log.error(`Unknown command: ${cmd}`);

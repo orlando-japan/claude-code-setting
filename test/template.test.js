@@ -27,7 +27,8 @@ test('applyTemplateFile creates a missing file and records hash', async () => {
 
   assert.equal(result, 'created');
   assert.equal(existsSync(join(destRoot, rel)), true);
-  assert.match(manifest.files[rel], /^sha256:/);
+  assert.match(manifest.files[rel].hash, /^sha256:/);
+  assert.equal(manifest.files[rel].source, srcRoot);
 });
 
 test('applyTemplateFile skips locally modified files without --force', async () => {
@@ -76,5 +77,6 @@ test('applyTemplateFile updates locally modified files with --force', async () =
 
   assert.equal(result, 'updated');
   assert.equal(content, '# upstream\n');
-  assert.match(manifest.files[rel], /^sha256:/);
+  assert.match(manifest.files[rel].hash, /^sha256:/);
+  assert.equal(manifest.files[rel].source, srcRoot);
 });

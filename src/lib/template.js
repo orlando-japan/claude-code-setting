@@ -4,6 +4,21 @@ import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { hashBuffer, hashFile } from './hash.js';
 
+export { hashBuffer } from './hash.js';
+
+/**
+ * Read a file record from the manifest, handling both the old format (string hash)
+ * and the new format ({ hash, source }).
+ *
+ * Returns null if the file is not tracked.
+ */
+export function getFileRecord(manifest, relPath) {
+  const v = manifest.files?.[relPath];
+  if (!v) return null;
+  if (typeof v === 'string') return { hash: v, source: null };
+  return v;
+}
+
 const __filename = fileURLToPath(import.meta.url);
 const PACKAGE_ROOT = join(dirname(__filename), '..', '..');
 export const TEMPLATES_ROOT = join(PACKAGE_ROOT, 'templates');
@@ -78,17 +93,18 @@ export async function applyTemplateFile(srcRoot, destRoot, relPath, manifest, op
     if (opts.dryRun) return 'created';
     await mkdir(dirname(dest), { recursive: true });
     await writeFile(dest, srcBuf);
-    manifest.files[relPath] = srcHash;
+    manifest.files[relPath] = { hash: srcHash, source: srcRoot };
     return 'created';
   }
 
   const destHash = await hashFile(dest);
   if (destHash === srcHash) {
-    manifest.files[relPath] = srcHash;
+    manifest.files[relPath] = { hash: srcHash, source: srcRoot };
     return 'unchanged';
   }
 
-  const recordedHash = manifest.files[relPath];
+  const record = getFileRecord(manifest, relPath);
+  const recordedHash = record?.hash;
   const userModified = recordedHash && recordedHash !== destHash;
 
   if (userModified && !opts.force) {
@@ -97,6 +113,6 @@ export async function applyTemplateFile(srcRoot, destRoot, relPath, manifest, op
 
   if (opts.dryRun) return 'updated';
   await writeFile(dest, srcBuf);
-  manifest.files[relPath] = srcHash;
+  manifest.files[relPath] = { hash: srcHash, source: srcRoot };
   return 'updated';
 }

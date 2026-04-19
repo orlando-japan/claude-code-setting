@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, writeFile, rm } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { run } from '../src/cli.js';
@@ -142,9 +142,10 @@ test('init --user performs a real isolated install and update restores missing t
     const manifest = JSON.parse(await readFile(manifestPath, 'utf8'));
     assert.ok(manifest.installed);
     assert.equal(typeof manifest.version, 'string');
-    assert.match(manifest.files['CLAUDE.md'], /^sha256:/);
-    assert.match(manifest.files['settings.json'], /^sha256:/);
-    assert.match(manifest.files['rules/coding-principles.md'], /^sha256:/);
+    assert.match(manifest.files['CLAUDE.md'].hash, /^sha256:/);
+    assert.ok(manifest.files['CLAUDE.md'].source);
+    assert.match(manifest.files['settings.json'].hash, /^sha256:/);
+    assert.match(manifest.files['rules/coding-principles.md'].hash, /^sha256:/);
 
     await rm(settingsPath);
     assert.equal(existsSync(settingsPath), false);
@@ -158,7 +159,7 @@ test('init --user performs a real isolated install and update restores missing t
     assert.equal(existsSync(settingsPath), true);
 
     const updatedManifest = JSON.parse(await readFile(manifestPath, 'utf8'));
-    assert.equal(updatedManifest.version, '0.1.1');
+    assert.equal(updatedManifest.version, '0.2.0');
   });
 });
 
@@ -180,8 +181,9 @@ test('init --user --target codex installs shared assets into CODEX_HOME', async 
 
     const manifest = JSON.parse(await readFile(manifestPath, 'utf8'));
     assert.equal(manifest.target, 'codex');
-    assert.match(manifest.files['AGENTS.md'], /^sha256:/);
-    assert.match(manifest.files['rules/coding-principles.md'], /^sha256:/);
+    assert.match(manifest.files['AGENTS.md'].hash, /^sha256:/);
+    assert.ok(manifest.files['AGENTS.md'].source);
+    assert.match(manifest.files['rules/coding-principles.md'].hash, /^sha256:/);
   });
 });
 
@@ -203,7 +205,7 @@ test('init --project installs project CLAUDE.md and update restores it', async (
     assert.equal(manifest.target, 'claude');
     assert.equal(typeof manifest.version, 'string');
     assert.ok(manifest.installed);
-    assert.match(manifest.files['CLAUDE.md'], /^sha256:/);
+    assert.match(manifest.files['CLAUDE.md'].hash, /^sha256:/);
 
     await rm(claudePath);
     assert.equal(existsSync(claudePath), false);
@@ -237,7 +239,7 @@ test('init --project --target codex installs project AGENTS.md and update restor
     assert.equal(manifest.target, 'codex');
     assert.equal(typeof manifest.version, 'string');
     assert.ok(manifest.installed);
-    assert.match(manifest.files['AGENTS.md'], /^sha256:/);
+    assert.match(manifest.files['AGENTS.md'].hash, /^sha256:/);
 
     await rm(agentsPath);
     assert.equal(existsSync(agentsPath), false);
@@ -250,5 +252,131 @@ test('init --project --target codex installs project AGENTS.md and update restor
     assert.match(updateRes.stdout, /Updating codex project profile/);
     assert.match(updateRes.stdout, /created\s+AGENTS\.md/);
     assert.equal(existsSync(agentsPath), true);
+  });
+});
+
+test('status shows unchanged files after clean install', async () => {
+  await withTempHome(async (home) => {
+    await withTempCwd(async () => {
+      await withEnv({ HOME: home }, () => captureConsole(() => run(['init', '--user'])));
+
+      const res = await withEnv({ HOME: home }, () =>
+        captureConsole(() => run(['status']))
+      );
+      assert.equal(res.status, 0, res.stderr);
+      assert.match(res.stdout, /user profile/);
+      assert.match(res.stdout, /unchanged/);
+      assert.doesNotMatch(res.stdout, /locally-modified/);
+      assert.doesNotMatch(res.stdout, /missing/);
+    });
+  });
+});
+
+test('status shows locally-modified and missing files', async () => {
+  await withTempHome(async (home) => {
+    await withTempCwd(async () => {
+      const claudeDir = join(home, '.claude');
+
+      await withEnv({ HOME: home }, () => captureConsole(() => run(['init', '--user'])));
+
+      await writeFile(join(claudeDir, 'settings.json'), '{ "modified": true }');
+      await rm(join(claudeDir, 'rules', 'coding-principles.md'));
+
+      const res = await withEnv({ HOME: home }, () =>
+        captureConsole(() => run(['status']))
+      );
+      assert.equal(res.status, 0, res.stderr);
+      assert.match(res.stdout, /locally-modified.*settings\.json/);
+      assert.match(res.stdout, /missing.*rules\/coding-principles\.md/);
+    });
+  });
+});
+
+test('diff shows differences for a locally-modified file', async () => {
+  await withTempHome(async (home) => {
+    await withTempCwd(async () => {
+      const claudeDir = join(home, '.claude');
+
+      await withEnv({ HOME: home }, () => captureConsole(() => run(['init', '--user'])));
+      await writeFile(join(claudeDir, 'settings.json'), '{ "modified": true }\n');
+
+      const res = await withEnv({ HOME: home }, () =>
+        captureConsole(() => run(['diff', 'settings.json']))
+      );
+      assert.equal(res.status, 0, res.stderr);
+      assert.match(res.stdout, /---/);
+      assert.match(res.stdout, /\+\+\+/);
+    });
+  });
+});
+
+test('diff exits 1 for a path not in any manifest', async () => {
+  await withTempHome(async (home) => {
+    await withTempCwd(async () => {
+      await withEnv({ HOME: home }, () => captureConsole(() => run(['init', '--user'])));
+
+      const res = await withEnv({ HOME: home }, () =>
+        captureConsole(() => run(['diff', 'nonexistent/file.md']))
+      );
+      assert.equal(res.status, 1);
+    });
+  });
+});
+
+test('restore reverts a locally-modified file to template', async () => {
+  await withTempHome(async (home) => {
+    await withTempCwd(async () => {
+      const claudeDir = join(home, '.claude');
+      const settingsPath = join(claudeDir, 'settings.json');
+
+      await withEnv({ HOME: home }, () => captureConsole(() => run(['init', '--user'])));
+      const original = await readFile(settingsPath, 'utf8');
+
+      await writeFile(settingsPath, '{ "modified": true }\n');
+      assert.notEqual(await readFile(settingsPath, 'utf8'), original);
+
+      const res = await withEnv({ HOME: home }, () =>
+        captureConsole(() => run(['restore', 'settings.json', '--force']))
+      );
+      assert.equal(res.status, 0, res.stderr);
+      assert.match(res.stdout, /restored.*settings\.json/);
+      assert.equal(await readFile(settingsPath, 'utf8'), original);
+    });
+  });
+});
+
+test('uninstall dry-run shows files without removing them', async () => {
+  await withTempHome(async (home) => {
+    await withTempCwd(async () => {
+      const claudeDir = join(home, '.claude');
+
+      await withEnv({ HOME: home }, () => captureConsole(() => run(['init', '--user'])));
+
+      const res = await withEnv({ HOME: home }, () =>
+        captureConsole(() => run(['uninstall']))
+      );
+      assert.equal(res.status, 0, res.stderr);
+      assert.match(res.stdout, /would remove/);
+      assert.equal(existsSync(join(claudeDir, 'CLAUDE.md')), true, 'dry-run must not delete files');
+    });
+  });
+});
+
+test('uninstall --confirm removes tracked files and manifest', async () => {
+  await withTempHome(async (home) => {
+    await withTempCwd(async () => {
+      const claudeDir = join(home, '.claude');
+      const manifestPath = join(claudeDir, MANIFEST_NAMES.claude);
+
+      await withEnv({ HOME: home }, () => captureConsole(() => run(['init', '--user'])));
+
+      const res = await withEnv({ HOME: home }, () =>
+        captureConsole(() => run(['uninstall', '--confirm']))
+      );
+      assert.equal(res.status, 0, res.stderr);
+      assert.match(res.stdout, /removed/);
+      assert.equal(existsSync(join(claudeDir, 'CLAUDE.md')), false);
+      assert.equal(existsSync(manifestPath), false);
+    });
   });
 });
