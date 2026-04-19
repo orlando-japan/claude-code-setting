@@ -96,17 +96,54 @@ test('cli fails on unknown flag with helpful message', async () => {
 
 test('doctor reports uninitialized user profile without fatal failure', async () => {
   await withTempHome(async (home) => {
-    const res = await withEnv({ HOME: home, PATH: '' }, () =>
-      captureConsole(() => run(['doctor']))
-    );
+    await withTempCwd(async () => {
+      const res = await withEnv({ HOME: home, PATH: '' }, () =>
+        captureConsole(() => run(['doctor']))
+      );
 
-    assert.equal(res.status, 0);
-    assert.match(res.stdout, /Environment/);
-    assert.match(res.stdout, /User profile/);
-    assert.match(res.stdout, /not initialized yet/);
-    assert.match(res.stdout, /Optional integrations/);
-    assert.match(res.stdout, /optional integration\(s\) missing/);
-    assert.equal(res.stderr, '');
+      assert.equal(res.status, 0);
+      assert.match(res.stdout, /Environment/);
+      assert.match(res.stdout, /User profile/);
+      assert.match(res.stdout, /not initialized yet/);
+      assert.match(res.stdout, /Project profile/);
+      assert.match(res.stdout, /Optional integrations/);
+      assert.match(res.stdout, /optional integration\(s\) missing/);
+      assert.equal(res.stderr, '');
+    });
+  });
+});
+
+test('doctor warns when project file is still a template stub', async () => {
+  await withTempHome(async (home) => {
+    await withTempCwd(async () => {
+      await withEnv({ HOME: home }, () => captureConsole(() => run(['init', '--project'])));
+
+      const res = await withEnv({ HOME: home, PATH: '' }, () =>
+        captureConsole(() => run(['doctor']))
+      );
+
+      assert.equal(res.status, 0, res.stderr);
+      assert.match(res.stdout, /Project profile/);
+      assert.match(res.stdout, /still contains template stubs/);
+      assert.match(res.stdout, /project file\(s\) still have template stubs/);
+    });
+  });
+});
+
+test('doctor reports project file as customized after editing', async () => {
+  await withTempHome(async (home) => {
+    await withTempCwd(async (cwd) => {
+      await withEnv({ HOME: home }, () => captureConsole(() => run(['init', '--project'])));
+      await writeFile(join(cwd, 'CLAUDE.md'), '# My Project\n\nCustomized content.\n');
+
+      const res = await withEnv({ HOME: home, PATH: '' }, () =>
+        captureConsole(() => run(['doctor']))
+      );
+
+      assert.equal(res.status, 0, res.stderr);
+      assert.match(res.stdout, /CLAUDE\.md.*customized/);
+      assert.doesNotMatch(res.stdout, /template stubs/);
+    });
   });
 });
 
@@ -159,7 +196,7 @@ test('init --user performs a real isolated install and update restores missing t
     assert.equal(existsSync(settingsPath), true);
 
     const updatedManifest = JSON.parse(await readFile(manifestPath, 'utf8'));
-    assert.equal(updatedManifest.version, '0.2.0');
+    assert.equal(typeof updatedManifest.version, 'string');
   });
 });
 

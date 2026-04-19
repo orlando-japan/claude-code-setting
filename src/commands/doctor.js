@@ -3,7 +3,8 @@ import { existsSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { execSync } from 'node:child_process';
 import { log } from '../lib/log.js';
-import { getManifestPath } from '../lib/template.js';
+import { getManifestPath, readManifest, getFileRecord } from '../lib/template.js';
+import { hashFile } from '../lib/hash.js';
 import { getTargetConfig, parseTargetFlag } from '../lib/targets.js';
 
 export async function doctor(flags) {
@@ -12,6 +13,7 @@ export async function doctor(flags) {
     fatal: 0,
     optional: 0,
     uninitialized: 0,
+    stubs: 0,
   };
 
   const ok = (name, details) => log.ok(`${name}${details ? ` — ${details}` : ''}`);
@@ -26,6 +28,10 @@ export async function doctor(flags) {
   const uninitialized = (name, details) => {
     log.warn(`${name}${details ? ` — ${details}` : ''}`);
     summary.uninitialized++;
+  };
+  const stub = (name, details) => {
+    log.warn(`${name}${details ? ` — ${details}` : ''}`);
+    summary.stubs++;
   };
 
   log.step('Environment');
@@ -85,6 +91,39 @@ export async function doctor(flags) {
     }
   }
 
+  log.step('Project profile');
+  for (const target of targets) {
+    const cfg = getTargetConfig(target);
+    const manifestPath = getManifestPath(cfg.projectDest, cfg.projectManifestName);
+    const prefix = target === 'claude' ? 'project profile' : `${target} project profile`;
+    const instructionFile = target === 'claude' ? 'CLAUDE.md' : 'AGENTS.md';
+
+    if (!existsSync(manifestPath)) {
+      uninitialized(prefix, `not initialized — run \`company-cc init --project --target ${target}\` to add ${instructionFile}`);
+      continue;
+    }
+
+    const manifest = await readManifest(cfg.projectDest, cfg.projectManifestName);
+    const filePath = join(cfg.projectDest, instructionFile);
+
+    if (!existsSync(filePath)) {
+      fatal(`${target}/project/${instructionFile}`, 'missing');
+      continue;
+    }
+
+    const record = getFileRecord(manifest, instructionFile);
+    if (record) {
+      const diskHash = await hashFile(filePath);
+      if (diskHash === record.hash) {
+        stub(`${target}/project/${instructionFile}`, 'still contains template stubs — fill in sections before using the AI on this repo');
+      } else {
+        ok(`${target}/project/${instructionFile}`, 'customized');
+      }
+    } else {
+      ok(`${target}/project/${instructionFile}`, 'present');
+    }
+  }
+
   log.step('Optional integrations');
   try {
     const version = execSync('openspec --version', { stdio: ['ignore', 'pipe', 'ignore'] })
@@ -111,6 +150,10 @@ export async function doctor(flags) {
     log.warn(`not fully initialized yet — ${summary.uninitialized} setup area(s) still need \`company-cc init\``);
   } else {
     log.ok('core install checks passed');
+  }
+
+  if (summary.stubs > 0) {
+    log.warn(`${summary.stubs} project file(s) still have template stubs — fill them in`);
   }
 
   if (summary.optional > 0) {
