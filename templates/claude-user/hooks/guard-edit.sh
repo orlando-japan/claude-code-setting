@@ -38,6 +38,12 @@ while IFS= read -r p; do
       ;;
   esac
 
+  case "$base" in
+    .bashrc|.bash_profile|.bash_aliases|.bash_logout|.zshrc|.zshenv|.zprofile|.profile|.gitconfig)
+      block "attempting to edit shell startup or git config: $p — ask the user to do this manually"
+      ;;
+  esac
+
   case "$p" in
     */.git/*|.git/*)
       block "attempting to write inside .git/: $p"

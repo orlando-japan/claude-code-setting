@@ -65,4 +65,19 @@ if printf '%s' "$input" | grep -qE '"command"[[:space:]]*:[[:space:]]*"sudo[[:sp
   block "sudo requires explicit user approval"
 fi
 
+# history clear (erases audit trail)
+if printf '%s' "$input" | grep -qE 'history[[:space:]]+(-c|--clear)'; then
+  block "history -c erases audit trail — ask the user to do this manually"
+fi
+
+# crontab manipulation (installs persistent scheduled tasks)
+if printf '%s' "$input" | grep -qE 'crontab[[:space:]]+(-e|-r)'; then
+  block "crontab -e/-r installs or removes scheduled tasks — ask the user to do this manually"
+fi
+
+# LD_PRELOAD injection
+if printf '%s' "$input" | grep -qE 'LD_PRELOAD[[:space:]]*='; then
+  block "LD_PRELOAD= library injection requires explicit user approval"
+fi
+
 exit 0
