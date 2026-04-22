@@ -2,6 +2,7 @@
 name: frontend-performance
 description: Make pages load fast and stay responsive. Invoke when Core Web Vitals regress, pages feel slow, or bundle size balloons.
 category: frontend
+group: dx
 tags: [web-vitals, performance, bundle-size]
 risk: medium
 ---

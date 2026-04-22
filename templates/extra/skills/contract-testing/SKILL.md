@@ -2,6 +2,7 @@
 name: contract-testing
 description: Verify service-to-service contracts so that a provider change can't silently break a consumer. Invoke when designing tests for microservice boundaries.
 category: testing
+group: review
 tags: [contract, microservices, pact]
 risk: medium
 ---

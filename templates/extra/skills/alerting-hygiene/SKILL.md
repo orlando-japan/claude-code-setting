@@ -2,6 +2,7 @@
 name: alerting-hygiene
 description: Keep the pager actionable. Invoke when setting up a new alert, auditing existing alerts, or after being woken up by a noisy alert.
 category: ops
+group: ops
 tags: [alerting, pagerduty, oncall, sre]
 risk: medium
 ---

@@ -2,6 +2,7 @@
 name: evals-design
 description: Build an offline evaluation set so you can compare LLM prompts and models quantitatively. Invoke when building or iterating on any LLM-powered feature.
 category: ai
+group: dx
 tags: [evals, llm, claude, testing]
 risk: medium
 ---

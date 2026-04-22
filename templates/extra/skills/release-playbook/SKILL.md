@@ -2,6 +2,7 @@
 name: release-playbook
 description: Ship a release gradually with rollback ready. Invoke when cutting any production release beyond a trivial patch.
 category: delivery
+group: workflow
 tags: [release, rollout, rollback]
 risk: high
 ---

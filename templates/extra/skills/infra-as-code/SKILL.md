@@ -2,6 +2,7 @@
 name: infra-as-code
 description: Manage infrastructure in version control so it's reviewable, reproducible, and rollback-able. Invoke when provisioning new infra or cleaning up ad-hoc resources.
 category: ops
+group: ops
 tags: [terraform, pulumi, iac, devops]
 risk: high
 ---

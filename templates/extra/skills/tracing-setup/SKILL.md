@@ -2,6 +2,7 @@
 name: tracing-setup
 description: Add distributed tracing to a service so you can follow a request across service boundaries. Invoke when debugging cross-service latency or setting up observability from scratch.
 category: observability
+group: ops
 tags: [tracing, opentelemetry, jaeger, distributed]
 risk: medium
 ---
