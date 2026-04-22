@@ -1,7 +1,7 @@
 import { join } from 'node:path';
 import { homedir } from 'node:os';
 import { existsSync } from 'node:fs';
-import { readFile } from 'node:fs/promises';
+import { readFile, rm } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { log } from '../lib/log.js';
 import { loadOverlays } from '../lib/config.js';
@@ -15,6 +15,7 @@ import {
   applyTemplateFile,
 } from '../lib/template.js';
 import { getTargetConfig, parseTargetFlag, TARGETS } from '../lib/targets.js';
+import { resolveSkillNames } from '../lib/skills.js';
 
 export async function update(flags) {
   const selectedTargets = parseTargetFlag(flags.target, flags._customTargets);
@@ -63,14 +64,23 @@ export async function update(flags) {
     log.step(`Updating ${label} → ${t.dest}${flags['dry-run'] ? ' (dry-run)' : ''}`);
     const manifest = await readManifest(t.dest, t.manifestName);
     const extraDir = join(TEMPLATES_ROOT, 'extra');
-    let extrasSelection = null; // null = install all extras; array = install only those
+    const extrasSkillsDir = join(TEMPLATES_ROOT, 'extra', 'skills');
+    let extrasSelection = null; // null = project profile, no extras handling
 
-    if (t.name === 'user' && manifest.extras) {
+    if (t.name === 'user') {
       if (!existsSync(extraDir)) {
-        log.warn(`extras were enabled at install time but template directory is missing: ${extraDir}`);
+        log.warn(`extras template directory missing: ${extraDir}`);
       } else {
         t.srcs.push(extraDir);
-        extrasSelection = Array.isArray(manifest.extras) ? manifest.extras : null;
+        if (manifest.extras == null) {
+          // Old install: shared/skills/ always had all 33 skills → migrate to full set
+          extrasSelection = await resolveSkillNames(true, extrasSkillsDir);
+        } else if (manifest.extras === false) {
+          // Old install: false meant "user chose no extras"
+          extrasSelection = [];
+        } else {
+          extrasSelection = await resolveSkillNames(manifest.extras, extrasSkillsDir);
+        }
       }
     }
 
@@ -89,7 +99,7 @@ export async function update(flags) {
     const counts = { created: 0, updated: 0, unchanged: 0, 'skipped-modified': 0 };
     for (const src of t.srcs) {
       const allFiles = await listTemplateFiles(src);
-      const files = (extrasSelection && src === extraDir)
+      const files = (extrasSelection !== null && src === extraDir)
         ? allFiles.filter(rel =>
             !rel.startsWith('skills/') ||
             extrasSelection.some(name => rel.startsWith(`skills/${name}/`))
@@ -109,18 +119,45 @@ export async function update(flags) {
       }
     }
 
+    const removedCount = extrasSelection !== null
+      ? await removeStaleSkills(t.dest, extrasSelection, manifest, flags['dry-run'])
+      : 0;
+
     if (!flags['dry-run']) {
       manifest.version = await getPackageVersion();
       manifest.installed = new Date().toISOString();
       manifest.target = t.target;
+      if (t.name === 'user' && extrasSelection !== null) {
+        manifest.extras = extrasSelection;
+      }
       await writeManifest(t.dest, t.manifestName, manifest);
+      if (removedCount > 0) log.dim('  Run `company-cc rollback` to undo');
     }
 
     log.info(
       `${counts.created} created, ${counts.updated} updated, ` +
-      `${counts.unchanged} unchanged, ${counts['skipped-modified']} skipped`
+      `${counts.unchanged} unchanged, ${counts['skipped-modified']} skipped` +
+      (removedCount > 0 ? `, ${removedCount} removed` : '')
     );
   }
+}
+
+async function removeStaleSkills(dest, newSelection, manifest, dryRun) {
+  const newSet = new Set(newSelection);
+  const stale = Object.keys(manifest.files).filter(rel => {
+    if (!rel.startsWith('skills/')) return false;
+    return !newSet.has(rel.split('/')[1]);
+  });
+  for (const rel of stale) {
+    if (dryRun) {
+      log.warn(`would remove: ${rel}`);
+    } else {
+      await rm(join(dest, rel), { force: true });
+      delete manifest.files[rel];
+      log.ok(`removed    ${rel}`);
+    }
+  }
+  return stale.length;
 }
 
 async function getPackageVersion() {
