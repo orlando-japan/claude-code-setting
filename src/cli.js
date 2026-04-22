@@ -10,6 +10,7 @@ import { restore } from './commands/restore.js';
 import { uninstall } from './commands/uninstall.js';
 import { ci } from './commands/ci.js';
 import { rollback } from './commands/rollback.js';
+import { skills } from './commands/skills.js';
 import { log } from './lib/log.js';
 import { loadCustomTargets } from './lib/config.js';
 
@@ -24,6 +25,8 @@ Usage:
   company-cc restore <path> [--target <claude|codex>] [--force]
   company-cc uninstall [--target <claude|codex|both>] [--confirm]
   company-cc rollback [--target <claude|codex|both>] [--confirm] [--list]
+  company-cc skills list              List all available skills by group
+  company-cc skills remove <name…>   Remove installed skills by name or --group
   company-cc ci [--target <claude|codex|both>] [--json]
 
 Options:
@@ -48,6 +51,7 @@ const VALID_FLAGS = {
   restore:   new Set(['target', 'force']),
   uninstall: new Set(['target', 'confirm']),
   rollback:  new Set(['target', 'confirm', 'list']),
+  skills:    new Set(['target', 'group', 'confirm', 'json']),
 };
 
 export function parseFlags(argv) {
@@ -124,6 +128,8 @@ export async function run(argv = process.argv.slice(2)) {
       case 'rollback':
         await rollback(flags);
         return 0;
+      case 'skills':
+        return await skills(flags, positional);
       case 'ci':
         return await ci(flags);
       default:
