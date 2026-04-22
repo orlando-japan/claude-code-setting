@@ -229,7 +229,7 @@ test('init --user --target codex installs shared assets into CODEX_HOME', async 
     assert.match(res.stdout, /Installing codex user profile/);
     assert.equal(existsSync(join(codexHome, 'AGENTS.md')), true);
     assert.equal(existsSync(join(codexHome, 'rules', 'coding-principles.md')), true);
-    assert.equal(existsSync(join(codexHome, 'skills', 'tdd', 'SKILL.md')), true);
+    assert.equal(existsSync(join(codexHome, 'skills', 'think-before-coding', 'SKILL.md')), true);
     assert.equal(existsSync(manifestPath), true);
 
     const manifest = JSON.parse(await readFile(manifestPath, 'utf8'));
@@ -434,13 +434,13 @@ test('uninstall --confirm removes tracked files and manifest', async () => {
   });
 });
 
-test('init --extras installs all extra skills', async () => {
+test('init --extras=all installs all extra skills', async () => {
   await withTempHome(async (home) => {
     await withTempCwd(async () => {
       const claudeDir = join(home, '.claude');
 
       const res = await withEnv({ HOME: home }, () =>
-        captureConsole(() => run(['init', '--user', '--extras']))
+        captureConsole(() => run(['init', '--user', '--extras=all']))
       );
       assert.equal(res.status, 0, res.stderr);
       assert.equal(existsSync(join(claudeDir, 'skills', 'evals-design', 'SKILL.md')), true);
@@ -478,8 +478,8 @@ test('init --extras=unknown exits 1 with helpful error', async () => {
         captureConsole(() => run(['init', '--user', '--extras=no-such-skill']))
       );
       assert.equal(res.status, 1);
-      assert.match(res.stderr, /Unknown extras/);
-      assert.match(res.stderr, /Available:/);
+      assert.match(res.stderr, /Unknown skill or group/);
+      assert.match(res.stderr, /Available groups:/);
     });
   });
 });

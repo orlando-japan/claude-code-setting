@@ -1,6 +1,6 @@
 import { join } from 'node:path';
 import { homedir } from 'node:os';
-import { readFile, readdir, chmod } from 'node:fs/promises';
+import { readFile, chmod } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import prompts from 'prompts';
@@ -16,16 +16,13 @@ import {
   ensureWritable,
 } from '../lib/template.js';
 import { getTargetConfig, parseTargetFlag } from '../lib/targets.js';
+import { listAllSkills, resolveSkillNames, buildCatalog } from '../lib/skills.js';
 
 async function promptForInitFlags(flags) {
   if (!process.stdin.isTTY) return;
 
   const skillsDir = join(TEMPLATES_ROOT, 'extra', 'skills');
-  let available = [];
-  if (existsSync(skillsDir)) {
-    const entries = await readdir(skillsDir, { withFileTypes: true });
-    available = entries.filter(e => e.isDirectory()).map(e => e.name).sort();
-  }
+  const allSkills = await listAllSkills(skillsDir);
 
   const questions = [
     {
@@ -52,12 +49,21 @@ async function promptForInitFlags(flags) {
     },
   ];
 
-  if (available.length > 0) {
+  if (allSkills.size > 0) {
+    const catalog = buildCatalog(allSkills, []);
     questions.push({
       type: 'multiselect',
       name: 'extras',
-      message: 'Extra skills  (space to toggle, enter to skip)',
-      choices: available.map(name => ({ title: name, value: name })),
+      message: 'Install skill groups  (space to toggle, enter to skip)',
+      choices: catalog.map(({ group, skills }) => {
+        const preview = skills.slice(0, 3).map(s => s.name).join(', ');
+        const suffix = skills.length > 3 ? ` +${skills.length - 3}` : '';
+        return {
+          title: `${group.padEnd(10)} — ${preview}${suffix}`,
+          value: group,
+          selected: group === 'core',
+        };
+      }),
       instructions: false,
       hint: 'optional',
     });
@@ -72,25 +78,33 @@ async function promptForInitFlags(flags) {
   if (res.target !== 'claude') flags.target = res.target;
   if (res.scope === 'user') flags.user = true;
   else if (res.scope === 'project') flags.project = true;
-  if (res.extras?.length > 0) flags.extras = res.extras.join(',');
+  // Always record the user's explicit choice: '' means "user deselected everything"
+  if (res.extras !== undefined) {
+    flags.extras = res.extras.length > 0 ? res.extras.join(',') : '';
+  }
 }
 
 async function resolveExtras(extrasFlag) {
-  if (!extrasFlag) return null;
   const skillsDir = join(TEMPLATES_ROOT, 'extra', 'skills');
   if (!existsSync(skillsDir)) {
     log.warn('extras directory not found in package, skipping');
     return null;
   }
-  const entries = await readdir(skillsDir, { withFileTypes: true });
-  const available = entries.filter(e => e.isDirectory()).map(e => e.name).sort();
-  if (extrasFlag === true) return available;
-  const requested = String(extrasFlag).split(',').map(s => s.trim()).filter(Boolean);
-  const unknown = requested.filter(n => !available.includes(n));
-  if (unknown.length > 0) {
-    throw new Error(`Unknown extras: ${unknown.join(', ')}\nAvailable: ${available.join(', ')}`);
+
+  // '' means user went through interactive prompt and deselected everything
+  if (extrasFlag === '' || extrasFlag === false) return [];
+
+  // Translate special sentinels before passing to resolveSkillNames
+  let selection;
+  if (extrasFlag === undefined || extrasFlag === null || extrasFlag === true) {
+    selection = 'core'; // bare --extras or no flag → default to core group
+  } else if (extrasFlag === 'all') {
+    selection = true;   // --extras=all → install everything
+  } else {
+    selection = extrasFlag; // group names, skill names, or mixed
   }
-  return requested;
+
+  return resolveSkillNames(selection, skillsDir);
 }
 
 function filterExtrasFiles(files, selected) {
