@@ -98,11 +98,26 @@ company-cc init --project
 # Install both project instruction files
 company-cc init --project --target both
 
-# Add all 7 opt-in advanced skills
+# Install the default core skill group (5 skills: think-before-coding, simplicity-first, etc.)
 company-cc init --user --extras
 
-# Add only specific skills (use skill directory names)
-company-cc init --user --extras=evals-design,infra-as-code
+# Install a specific skill group
+company-cc init --user --extras=review
+
+# Mix group names and individual skill names
+company-cc init --user --extras=core,code-review,incident-response
+
+# Install all 40 skills across all 6 groups
+company-cc init --user --extras=all
+
+# See all available skills and their install status
+company-cc skills list
+
+# Remove a skill group (dry-run by default)
+company-cc skills remove --group=ops
+
+# Remove specific skills
+company-cc skills remove think-before-coding commit-smart --confirm
 
 # Pull latest templates (skips files you've edited locally;
 # remembers --extras choice from your manifest)
@@ -160,10 +175,10 @@ for Codex by default) and skipped on update unless you pass `--force`. New templ
 
 | Layer | Content |
 |---|---|
-| **Shared** (`templates/shared/`) | 9 global rules plus 33 core skills installed for both Claude and Codex targets |
+| **Shared** (`templates/shared/`) | 9 global rules installed for both Claude and Codex targets |
 | **Claude-only** (`templates/claude-user/`, `templates/claude-project/`) | `CLAUDE.md`, slash commands, agents, settings, MCP stub, hooks |
 | **Codex-only** (`templates/codex-user/`, `templates/codex-project/`) | `AGENTS.md` user and project scaffolds |
-| **Extras** (`templates/extra/`) | 7 opt-in advanced skills (`--extras`) shared across targets |
+| **Extras** (`templates/extra/`) | 40 skills in 6 groups: **core**, **review**, **workflow**, **design**, **ops**, **dx** — install by group or skill name via `--extras` |
 
 ## How to use the harness
 
@@ -175,7 +190,7 @@ Just start Claude Code and make a request. Behind the scenes the session picks u
 - The four coding principles in `CLAUDE.md` (Think → Simplicity → Surgical → Goal-driven)
 - Seven always-on rules: `coding-principles`, `code-style`, `security`, `error-handling`, `observability`, `commit-conventions`, `testing`
 - Two opt-in rules available for teams that need them: `api-design`, `data-access`
-- 33 core skills, chosen on demand by the model based on the task
+- Any skills you installed via `--extras`, chosen on demand by the model based on the task
 - `PreToolUse` guard hooks on `Bash` and `Write|Edit|MultiEdit` that block obviously-dangerous commands
 
 What you'll notice: shorter replies, less over-engineering, fewer "while I'm in here" refactors, dangerous shell commands refused.

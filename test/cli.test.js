@@ -505,6 +505,205 @@ test('update respects extras selection stored in manifest', async () => {
   });
 });
 
+test('init --extras=core installs core group skills only', async () => {
+  await withTempHome(async (home) => {
+    await withTempCwd(async () => {
+      const claudeDir = join(home, '.claude');
+
+      const res = await withEnv({ HOME: home }, () =>
+        captureConsole(() => run(['init', '--user', '--extras=core']))
+      );
+      assert.equal(res.status, 0, res.stderr);
+      assert.equal(existsSync(join(claudeDir, 'skills', 'think-before-coding', 'SKILL.md')), true);
+      assert.equal(existsSync(join(claudeDir, 'skills', 'simplicity-first', 'SKILL.md')), true);
+      assert.equal(existsSync(join(claudeDir, 'skills', 'evals-design', 'SKILL.md')), false);
+
+      const manifest = JSON.parse(await readFile(join(claudeDir, MANIFEST_NAMES.claude), 'utf8'));
+      assert.ok(Array.isArray(manifest.extras));
+      assert.ok(manifest.extras.includes('think-before-coding'));
+      assert.ok(!manifest.extras.includes('evals-design'));
+    });
+  });
+});
+
+test('init --extras=core,code-review installs group + individual skill', async () => {
+  await withTempHome(async (home) => {
+    await withTempCwd(async () => {
+      const claudeDir = join(home, '.claude');
+
+      const res = await withEnv({ HOME: home }, () =>
+        captureConsole(() => run(['init', '--user', '--extras=core,code-review']))
+      );
+      assert.equal(res.status, 0, res.stderr);
+      assert.equal(existsSync(join(claudeDir, 'skills', 'think-before-coding', 'SKILL.md')), true);
+      assert.equal(existsSync(join(claudeDir, 'skills', 'code-review', 'SKILL.md')), true);
+      assert.equal(existsSync(join(claudeDir, 'skills', 'evals-design', 'SKILL.md')), false);
+
+      const manifest = JSON.parse(await readFile(join(claudeDir, MANIFEST_NAMES.claude), 'utf8'));
+      assert.ok(manifest.extras.includes('think-before-coding'));
+      assert.ok(manifest.extras.includes('code-review'));
+    });
+  });
+});
+
+test('update migrates old manifest (extras: null) to full skill set', async () => {
+  await withTempHome(async (home) => {
+    await withTempCwd(async () => {
+      const claudeDir = join(home, '.claude');
+
+      await withEnv({ HOME: home }, () =>
+        captureConsole(() => run(['init', '--user', '--extras=core']))
+      );
+
+      // Simulate old-format manifest by setting extras to null
+      const manifestPath = join(claudeDir, MANIFEST_NAMES.claude);
+      const manifest = JSON.parse(await readFile(manifestPath, 'utf8'));
+      manifest.extras = null;
+      await writeFile(manifestPath, JSON.stringify(manifest, null, 2));
+
+      const res = await withEnv({ HOME: home }, () =>
+        captureConsole(() => run(['update']))
+      );
+      assert.equal(res.status, 0, res.stderr);
+      // After migration, all skills should be installed
+      assert.equal(existsSync(join(claudeDir, 'skills', 'evals-design', 'SKILL.md')), true);
+      assert.equal(existsSync(join(claudeDir, 'skills', 'think-before-coding', 'SKILL.md')), true);
+    });
+  });
+});
+
+test('update handles manifest extras: false (old install, no extras) without error', async () => {
+  await withTempHome(async (home) => {
+    await withTempCwd(async () => {
+      const claudeDir = join(home, '.claude');
+
+      await withEnv({ HOME: home }, () =>
+        captureConsole(() => run(['init', '--user', '--extras=core']))
+      );
+
+      // Simulate old-format manifest with extras: false
+      const manifestPath = join(claudeDir, MANIFEST_NAMES.claude);
+      const manifest = JSON.parse(await readFile(manifestPath, 'utf8'));
+      manifest.extras = false;
+      await writeFile(manifestPath, JSON.stringify(manifest, null, 2));
+
+      const res = await withEnv({ HOME: home }, () =>
+        captureConsole(() => run(['update']))
+      );
+      assert.equal(res.status, 0, res.stderr);
+    });
+  });
+});
+
+test('update removes stale skills when extras selection narrows', async () => {
+  await withTempHome(async (home) => {
+    await withTempCwd(async () => {
+      const claudeDir = join(home, '.claude');
+
+      // Install core + evals-design
+      await withEnv({ HOME: home }, () =>
+        captureConsole(() => run(['init', '--user', '--extras=core,evals-design']))
+      );
+      assert.equal(existsSync(join(claudeDir, 'skills', 'evals-design', 'SKILL.md')), true);
+
+      // Narrow to core only in manifest
+      const manifestPath = join(claudeDir, MANIFEST_NAMES.claude);
+      const manifest = JSON.parse(await readFile(manifestPath, 'utf8'));
+      manifest.extras = manifest.extras.filter(n => n !== 'evals-design');
+      await writeFile(manifestPath, JSON.stringify(manifest, null, 2));
+
+      const res = await withEnv({ HOME: home }, () =>
+        captureConsole(() => run(['update']))
+      );
+      assert.equal(res.status, 0, res.stderr);
+      assert.equal(existsSync(join(claudeDir, 'skills', 'evals-design', 'SKILL.md')), false);
+      assert.equal(existsSync(join(claudeDir, 'skills', 'think-before-coding', 'SKILL.md')), true);
+    });
+  });
+});
+
+test('skills list shows grouped catalog with install markers', async () => {
+  await withTempHome(async (home) => {
+    await withTempCwd(async () => {
+      await withEnv({ HOME: home }, () =>
+        captureConsole(() => run(['init', '--user', '--extras=core']))
+      );
+
+      const res = await withEnv({ HOME: home }, () =>
+        captureConsole(() => run(['skills', 'list']))
+      );
+      assert.equal(res.status, 0, res.stderr);
+      assert.match(res.stdout, /core/);
+      assert.match(res.stdout, /think-before-coding/);
+      assert.match(res.stdout, /✓/);
+    });
+  });
+});
+
+test('skills list --json emits valid grouped JSON', async () => {
+  await withTempHome(async (home) => {
+    await withTempCwd(async () => {
+      await withEnv({ HOME: home }, () =>
+        captureConsole(() => run(['init', '--user', '--extras=core']))
+      );
+
+      const res = await withEnv({ HOME: home }, () =>
+        captureConsole(() => run(['skills', 'list', '--json']))
+      );
+      assert.equal(res.status, 0, res.stderr);
+      const parsed = JSON.parse(res.stdout);
+      assert.ok(Array.isArray(parsed));
+      const coreGroup = parsed.find(g => g.group === 'core');
+      assert.ok(coreGroup, 'core group should be present');
+      assert.ok(Array.isArray(coreGroup.skills));
+      assert.ok(coreGroup.skills.every(s => typeof s.installed === 'boolean'));
+    });
+  });
+});
+
+test('skills remove --group=<name> --confirm removes that group', async () => {
+  await withTempHome(async (home) => {
+    await withTempCwd(async () => {
+      const claudeDir = join(home, '.claude');
+
+      await withEnv({ HOME: home }, () =>
+        captureConsole(() => run(['init', '--user', '--extras=core,evals-design']))
+      );
+      assert.equal(existsSync(join(claudeDir, 'skills', 'think-before-coding', 'SKILL.md')), true);
+
+      const res = await withEnv({ HOME: home }, () =>
+        captureConsole(() => run(['skills', 'remove', '--group=core', '--confirm']))
+      );
+      assert.equal(res.status, 0, res.stderr);
+      assert.equal(existsSync(join(claudeDir, 'skills', 'think-before-coding', 'SKILL.md')), false);
+      assert.equal(existsSync(join(claudeDir, 'skills', 'evals-design', 'SKILL.md')), true);
+
+      const manifest = JSON.parse(await readFile(join(claudeDir, MANIFEST_NAMES.claude), 'utf8'));
+      assert.ok(!manifest.extras.includes('think-before-coding'));
+      assert.ok(manifest.extras.includes('evals-design'));
+    });
+  });
+});
+
+test('skills remove without --confirm is a dry-run', async () => {
+  await withTempHome(async (home) => {
+    await withTempCwd(async () => {
+      const claudeDir = join(home, '.claude');
+
+      await withEnv({ HOME: home }, () =>
+        captureConsole(() => run(['init', '--user', '--extras=core']))
+      );
+
+      const res = await withEnv({ HOME: home }, () =>
+        captureConsole(() => run(['skills', 'remove', '--group=core']))
+      );
+      assert.equal(res.status, 0, res.stderr);
+      assert.match(res.stdout, /would remove/);
+      assert.equal(existsSync(join(claudeDir, 'skills', 'think-before-coding', 'SKILL.md')), true);
+    });
+  });
+});
+
 test('doctor --json emits valid JSON with checks array', async () => {
   await withTempHome(async (home) => {
     await withTempCwd(async () => {

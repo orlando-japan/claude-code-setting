@@ -7,8 +7,8 @@
 The repository is split into shared and provider-specific template roots:
 
 ```text
-templates/shared/          shared rules + core skills
-templates/extra/           opt-in shared skills
+templates/shared/          shared rules
+templates/extra/           40 opt-in skills in 6 groups (core, review, workflow, design, ops, dx)
 templates/claude-user/     Claude-specific user assets
 templates/claude-project/  Claude-specific project file
 templates/codex-user/      Codex-specific user assets
@@ -25,7 +25,7 @@ Codex user:    $CODEX_HOME or ~/.codex/
 Codex project: <repo>/AGENTS.md
 ```
 
-Shared assets such as `rules/` and `skills/` install into both user homes. Provider-specific files stay isolated.
+Shared assets such as `rules/` install into both user homes. Provider-specific files stay isolated. Skills are opt-in extras installed on request via `--extras`.
 
 ## Manifests
 
@@ -51,11 +51,10 @@ The shared/provider split is intentional:
 
 | Layer | Purpose |
 |---|---|
-| Shared rules | Always-relevant engineering defaults |
-| Shared skills | Reusable playbooks loaded on demand |
+| Shared rules | Always-relevant engineering defaults (always installed) |
 | Claude adapter | `CLAUDE.md`, commands, agents, hooks, settings, MCP stub |
 | Codex adapter | `AGENTS.md` user/project entry files |
-| Extra skills | Domain-specific opt-in playbooks |
+| Extra skills | 40 opt-in playbooks in 6 groups — install by group or skill name via `--extras`; manage with `skills list/remove` |
 
 This keeps most guidance portable while letting each tool keep its own surface area.
 
