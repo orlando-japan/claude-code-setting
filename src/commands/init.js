@@ -16,7 +16,7 @@ import {
   ensureWritable,
 } from '../lib/template.js';
 import { getTargetConfig, parseTargetFlag } from '../lib/targets.js';
-import { listAllSkills, resolveSkillNames, buildCatalog } from '../lib/skills.js';
+import { listAllSkills, resolveSkillNames, buildCatalog, filterSkillFiles } from '../lib/skills.js';
 
 async function promptForInitFlags(flags) {
   if (!process.stdin.isTTY) return;
@@ -107,12 +107,6 @@ async function resolveExtras(extrasFlag) {
   return resolveSkillNames(selection, skillsDir);
 }
 
-function filterExtrasFiles(files, selected) {
-  return files.filter(rel =>
-    !rel.startsWith('skills/') ||
-    selected.some(name => rel.startsWith(`skills/${name}/`))
-  );
-}
 
 export async function init(flags) {
   const isDefaultCall = !flags.user && !flags.project && flags.extras === undefined && !flags.target;
@@ -158,7 +152,7 @@ async function installProfile(target, name, srcRoots, destRoot, manifestName, fl
   for (const srcRoot of srcRoots) {
     const allFiles = await listTemplateFiles(srcRoot);
     const files = (selectedExtras && srcRoot === extraDir)
-      ? filterExtrasFiles(allFiles, selectedExtras)
+      ? filterSkillFiles(allFiles, selectedExtras)
       : allFiles;
     for (const rel of files) {
       const result = await applyTemplateFile(srcRoot, destRoot, rel, manifest, {

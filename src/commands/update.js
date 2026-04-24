@@ -15,7 +15,7 @@ import {
   applyTemplateFile,
 } from '../lib/template.js';
 import { getTargetConfig, parseTargetFlag, TARGETS } from '../lib/targets.js';
-import { resolveSkillNames } from '../lib/skills.js';
+import { resolveSkillNames, filterSkillFiles } from '../lib/skills.js';
 
 export async function update(flags) {
   const selectedTargets = parseTargetFlag(flags.target, flags._customTargets);
@@ -73,11 +73,16 @@ export async function update(flags) {
       } else {
         t.srcs.push(extraDir);
         if (manifest.extras == null) {
-          // Old install: shared/skills/ always had all 33 skills → migrate to full set
+          // Old install (pre-0.3.0): shared/skills/ always had all 33 skills → migrate to full set
           extrasSelection = await resolveSkillNames(true, extrasSkillsDir);
         } else if (manifest.extras === false) {
           // Old install: false meant "user chose no extras"
           extrasSelection = [];
+        } else if (isPreGroupsManifest(manifest)) {
+          // Old install (pre-0.3.0): extras was a subset of the 7 old opt-ins; shared/skills
+          // (33 skills) were always installed separately. Migrate to full set so the 33 aren't lost.
+          log.dim('  Migrating pre-0.3.0 extras format → installing all skills');
+          extrasSelection = await resolveSkillNames(true, extrasSkillsDir);
         } else {
           extrasSelection = await resolveSkillNames(manifest.extras, extrasSkillsDir);
         }
@@ -100,10 +105,7 @@ export async function update(flags) {
     for (const src of t.srcs) {
       const allFiles = await listTemplateFiles(src);
       const files = (extrasSelection !== null && src === extraDir)
-        ? allFiles.filter(rel =>
-            !rel.startsWith('skills/') ||
-            extrasSelection.some(name => rel.startsWith(`skills/${name}/`))
-          )
+        ? filterSkillFiles(allFiles, extrasSelection)
         : allFiles;
       for (const rel of files) {
         const result = await applyTemplateFile(src, t.dest, rel, manifest, {
@@ -164,4 +166,14 @@ async function getPackageVersion() {
   const pkgPath = fileURLToPath(new URL('../../package.json', import.meta.url));
   const pkg = JSON.parse(await readFile(pkgPath, 'utf8'));
   return pkg.version;
+}
+
+// 0.3.0 introduced skill groups and moved 33 shared skills into extra/.
+// Pre-0.3.0 manifests stored only the 7 opt-in extras; the 33 shared skills were always installed.
+function isPreGroupsManifest(manifest) {
+  if (!Array.isArray(manifest.extras) || manifest.extras.length === 0) return false;
+  const ver = manifest.version;
+  if (!ver) return true; // very old manifest with no version field
+  const [major, minor] = ver.split('.').map(Number);
+  return major === 0 && minor < 3;
 }

@@ -32,10 +32,15 @@ Usage:
 Options:
   --user       Install user-level assets to the selected target home
   --project    Install project-level assets to <cwd>
-  --extras[=s1,s2]  Install opt-in skills: bare flag = all; =name,name = selected only
+  --extras[=<groups|skills|all>]
+               Install opt-in skills. Bare flag = core group (5 skills).
+               =all installs all 40 skills. Use group names (core, review,
+               workflow, design, ops, dx) or individual skill names, comma-
+               separated. Example: --extras=core,code-review
   --force      Overwrite locally modified files (default: skip with warning)
   --dry-run    Print what would change without touching files
-  --confirm    For uninstall: actually remove files (default is dry-run)
+  --confirm    For uninstall/skills remove: actually remove files (default is dry-run)
+  --group      For skills remove: remove all skills in a named group
   --json       Machine-readable JSON output (for CI wrappers)
   --target     Installation target (default: claude)
   -h, --help   Show this help
@@ -51,7 +56,7 @@ const VALID_FLAGS = {
   restore:   new Set(['target', 'force']),
   uninstall: new Set(['target', 'confirm']),
   rollback:  new Set(['target', 'confirm', 'list']),
-  skills:    new Set(['target', 'group', 'confirm', 'json']),
+  skills:    new Set(['target', 'group', 'confirm', 'json', 'force']),
 };
 
 export function parseFlags(argv) {

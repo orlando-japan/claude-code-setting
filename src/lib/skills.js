@@ -90,6 +90,17 @@ export async function resolveSkillNames(selection, extrasSkillsDir) {
 }
 
 /**
+ * Filter a file list to include only selected skills (from the extra dir).
+ * Non-skill files pass through unchanged.
+ */
+export function filterSkillFiles(files, selectedSkills) {
+  return files.filter(rel =>
+    !rel.startsWith('skills/') ||
+    selectedSkills.some(name => rel.startsWith(`skills/${name}/`))
+  );
+}
+
+/**
  * Build a grouped catalog for display.
  * Returns array of { group, skills: [{ name, description, installed }] }
  * sorted by SKILL_GROUPS order.

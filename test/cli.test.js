@@ -595,6 +595,33 @@ test('update handles manifest extras: false (old install, no extras) without err
   });
 });
 
+test('update migrates pre-0.3.0 extras array (old opt-in names) to full skill set', async () => {
+  await withTempHome(async (home) => {
+    await withTempCwd(async () => {
+      const claudeDir = join(home, '.claude');
+
+      await withEnv({ HOME: home }, () =>
+        captureConsole(() => run(['init', '--user', '--extras=core']))
+      );
+
+      // Simulate pre-0.3.0 manifest: old version + extras held only old opt-in skill names
+      const manifestPath = join(claudeDir, MANIFEST_NAMES.claude);
+      const manifest = JSON.parse(await readFile(manifestPath, 'utf8'));
+      manifest.version = '0.2.1';
+      manifest.extras = ['evals-design', 'tracing-setup'];
+      await writeFile(manifestPath, JSON.stringify(manifest, null, 2));
+
+      const res = await withEnv({ HOME: home }, () =>
+        captureConsole(() => run(['update']))
+      );
+      assert.equal(res.status, 0, res.stderr);
+      // Should migrate to full set — skills from core (previously shared) must be present
+      assert.equal(existsSync(join(claudeDir, 'skills', 'think-before-coding', 'SKILL.md')), true);
+      assert.equal(existsSync(join(claudeDir, 'skills', 'incident-response', 'SKILL.md')), true);
+    });
+  });
+});
+
 test('update removes stale skills when extras selection narrows', async () => {
   await withTempHome(async (home) => {
     await withTempCwd(async () => {

@@ -2,7 +2,9 @@ import { join, dirname } from 'node:path';
 import { existsSync } from 'node:fs';
 import { unlink, rmdir } from 'node:fs/promises';
 import { log } from '../lib/log.js';
-import { TEMPLATES_ROOT, readManifest, writeManifest, getManifestPath } from '../lib/template.js';
+import { TEMPLATES_ROOT, readManifest, writeManifest, getManifestPath, getFileRecord } from '../lib/template.js';
+import { hashFile } from '../lib/hash.js';
+import { createBackup } from '../lib/backup.js';
 import { getTargetConfig, parseTargetFlag } from '../lib/targets.js';
 import { listAllSkills, buildCatalog } from '../lib/skills.js';
 
@@ -137,38 +139,61 @@ async function skillsRemove(flags, names) {
 
   if (dryRun) {
     log.info('Dry-run — pass --confirm to actually remove files\n');
+    for (const rel of installedFiles.sort()) {
+      log.info(`  would remove: ${rel}`);
+    }
+    return 0;
+  }
+
+  // Backup before any destructive changes
+  try {
+    const backupPath = await createBackup(cfg.userDest, cfg.userManifestName, manifest);
+    log.dim(`  backup: ${backupPath}`);
+  } catch (err) {
+    log.warn(`backup failed (${err.message}) — continuing without backup`);
   }
 
   const removedDirs = new Set();
+  let removedCount = 0;
   for (const rel of installedFiles.sort().reverse()) {
     const full = join(cfg.userDest, rel);
-    if (dryRun) {
-      log.info(`  would remove: ${rel}`);
-    } else {
-      if (existsSync(full)) {
-        await unlink(full);
-        removedDirs.add(dirname(full));
-      }
+    if (!existsSync(full)) {
       delete manifest.files[rel];
-      log.ok(`removed    ${rel}`);
+      continue;
     }
+
+    // Skip locally modified files unless --force
+    if (!flags.force) {
+      const record = getFileRecord(manifest, rel);
+      if (record?.hash) {
+        const currentHash = await hashFile(full);
+        if (currentHash !== record.hash) {
+          log.warn(`skipped (locally modified): ${rel}  — use --force to remove`);
+          continue;
+        }
+      }
+    }
+
+    await unlink(full);
+    removedDirs.add(dirname(full));
+    delete manifest.files[rel];
+    log.ok(`removed    ${rel}`);
+    removedCount++;
   }
 
-  if (!dryRun) {
-    // Clean up empty skill directories
-    for (const dir of [...removedDirs].sort((a, b) => b.length - a.length)) {
-      if (dir === cfg.userDest) continue;
-      try { await rmdir(dir); } catch { /* not empty */ }
-    }
-
-    // Update manifest.extras
-    if (Array.isArray(manifest.extras)) {
-      manifest.extras = manifest.extras.filter(name => !toRemove.has(name));
-    }
-
-    await writeManifest(cfg.userDest, cfg.userManifestName, manifest);
-    log.info(`Removed ${installedFiles.length} file(s). Run \`company-cc rollback\` to undo.`);
+  // Clean up empty skill directories
+  for (const dir of [...removedDirs].sort((a, b) => b.length - a.length)) {
+    if (dir === cfg.userDest) continue;
+    try { await rmdir(dir); } catch { /* not empty */ }
   }
+
+  // Update manifest.extras
+  if (Array.isArray(manifest.extras)) {
+    manifest.extras = manifest.extras.filter(name => !toRemove.has(name));
+  }
+
+  await writeManifest(cfg.userDest, cfg.userManifestName, manifest);
+  log.info(`Removed ${removedCount} file(s). Run \`company-cc rollback\` to undo.`);
 
   return 0;
 }
