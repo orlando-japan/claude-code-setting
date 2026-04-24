@@ -17,7 +17,8 @@
     "lint": "eslint src",
     "test": "node --test",
     "test:smoke": "node --test test/cli.test.js",
-    "test:templates": "node --test test/template.test.js"
+    "test:templates": "node --test test/template.test.js",
+    "test:lint": "node --test test/templates.test.js"
   },
   "engines": {
     "node": ">=20.0.0"

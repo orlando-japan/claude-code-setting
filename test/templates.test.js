@@ -39,7 +39,7 @@ async function findFiles(dir, predicate) {
 
 // ─── Skill frontmatter ───────────────────────────────────────────────────────
 
-test('all SKILL.md files have required frontmatter (name, description)', async () => {
+test('all SKILL.md files have required frontmatter (name, description, group)', async () => {
   const files = await findFiles(TEMPLATES, n => n === 'SKILL.md');
   assert.ok(files.length > 0, 'should find at least one SKILL.md');
 
@@ -54,6 +54,7 @@ test('all SKILL.md files have required frontmatter (name, description)', async (
     }
     if (!fm.name || !fm.name.trim()) problems.push(`${rel}: missing "name"`);
     if (!fm.description || !fm.description.trim()) problems.push(`${rel}: missing "description"`);
+    if (!fm.group || !fm.group.trim()) problems.push(`${rel}: missing "group" (required for skill grouping)`);
   }
 
   assert.deepEqual(problems, [], `SKILL.md frontmatter issues:\n${problems.join('\n')}`);
@@ -120,20 +121,26 @@ test('all agent .md files have required frontmatter (name, description, tools, m
 
 // ─── @rule import resolution ─────────────────────────────────────────────────
 
-test('CLAUDE.md @rule imports resolve to actual template files', async () => {
-  const claudeMd = join(TEMPLATES, 'claude-user', 'CLAUDE.md');
-  const content = await readFile(claudeMd, 'utf8');
-
+test('@rule imports in instruction files resolve to actual template files', async () => {
+  const instructionFiles = [
+    join(TEMPLATES, 'claude-user', 'CLAUDE.md'),
+    join(TEMPLATES, 'codex-user', 'AGENTS.md'),
+  ];
   const rulesRoot = join(TEMPLATES, 'shared', 'rules');
   const problems = [];
 
-  for (const line of content.split('\n')) {
-    const match = line.match(/^@(rules\/[\w.-]+\.md)/);
-    if (!match) continue;
-    const rulePath = match[1];
-    const fullPath = join(rulesRoot, rulePath.replace('rules/', ''));
-    if (!existsSync(fullPath)) {
-      problems.push(`@${rulePath} → not found at ${fullPath}`);
+  for (const filePath of instructionFiles) {
+    if (!existsSync(filePath)) continue;
+    const rel = relative(TEMPLATES, filePath);
+    const content = await readFile(filePath, 'utf8');
+    for (const line of content.split('\n')) {
+      const match = line.match(/^@(rules\/[\w.-]+\.md)/);
+      if (!match) continue;
+      const rulePath = match[1];
+      const fullPath = join(rulesRoot, rulePath.replace('rules/', ''));
+      if (!existsSync(fullPath)) {
+        problems.push(`${rel}: @${rulePath} → not found`);
+      }
     }
   }
 
