@@ -118,21 +118,6 @@ company-cc init --user --extras=all
 # Install the doc-governance + git-governance bundle explicitly
 company-cc init --user --extras=doc-defrag-audit,governance-link-drift-audit,git-clean-commit-guard,commit-review-gate
 
-## Governance bundle
-
-If your team wants the full document-governance + commit-governance workflow, install this 4-skill bundle:
-
-```bash
-company-cc init --user --extras=doc-defrag-audit,governance-link-drift-audit,git-clean-commit-guard,commit-review-gate
-```
-
-Included skills:
-- `doc-defrag-audit`
-- `governance-link-drift-audit`
-- `git-clean-commit-guard`
-- `commit-review-gate`
-
-
 # See all available skills and their install status
 company-cc skills list
 
@@ -193,6 +178,42 @@ company-cc ci --json
 Files you've edited yourself are detected via SHA-256 in a target-specific manifest
 (`~/.claude/.company-cc-manifest.json` for Claude, `~/.codex/.company-cc-codex-manifest.json`
 for Codex by default) and skipped on update unless you pass `--force`. New template files are always added.
+
+## Governance bundle
+
+If your team wants the full document-governance + commit-governance workflow, install this 4-skill bundle:
+
+```bash
+company-cc init --user --extras=doc-defrag-audit,governance-link-drift-audit,git-clean-commit-guard,commit-review-gate
+```
+
+Included skills:
+- `doc-defrag-audit`
+- `governance-link-drift-audit`
+- `git-clean-commit-guard`
+- `commit-review-gate`
+
+## Automation behavior
+
+After install, automation is split across three layers:
+
+### Hard-blocking local hooks
+- `git-commit-gate.sh` blocks blanket staging (`git add .`, `git add -A`)
+- blocks empty commits
+- blocks obvious secrets / key material in staged files
+- blocks obvious generated junk in staged commits
+
+### Warning-only local hooks
+- `docs-governance-watch.sh` runs automatically when docs are part of a commit or push
+- it does **not** block the action
+- it warns when doc changes look like fragmentation or governance drift
+
+### Project CI
+- `docs-governance.yml` runs in GitHub Actions on every push and pull request
+- if no docs changed, it exits quietly
+- if docs changed, it emits governance warnings in CI logs / annotations
+
+This means commit hygiene is enforced locally, while document governance is automated but still review-oriented.
 
 ## What you get
 

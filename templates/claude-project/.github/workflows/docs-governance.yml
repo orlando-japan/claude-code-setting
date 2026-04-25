@@ -2,16 +2,7 @@ name: Docs Governance
 
 on:
   pull_request:
-    paths:
-      - '**/*.md'
-      - 'docs/**'
-      - 'doc/**'
   push:
-    branches: [main, master]
-    paths:
-      - '**/*.md'
-      - 'docs/**'
-      - 'doc/**'
 
 jobs:
   docs-governance:
