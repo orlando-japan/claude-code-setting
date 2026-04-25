@@ -4,16 +4,21 @@ Company-wide AI coding harness. One install gives every engineer a consistent se
 
 ## Status
 
-Current repo status:
-- CLI entrypoint is runnable
-- template installer / updater / doctor flows are wired
-- minimal automated tests are present
-- packaging is suitable for a private npm/internal distribution flow
+**v0.4.0** — production-ready for internal distribution.
+
+What's shipped:
+- Full install / update / uninstall / rollback lifecycle, manifest-tracked per target
+- 40 skills across 6 groups — install by group, by name, or all at once; `skills list` / `skills remove` for day-to-day management
+- 9 shared rules (coding principles, code style, security, error handling, observability, commit conventions, testing, API design, data access)
+- Guard hooks with audit logging on `Bash` and `Write|Edit|MultiEdit`
+- `ci` command + `--json` output on `doctor`, `status`, and `ci` for CI wrappers
+- Team overlay layer and custom target adapters via `.company-cc.json`
+- Interactive `init` (no flags needed), fine-grained `--extras` selection, pre-0.3.0 manifest migration
 
 Still intentionally lightweight:
-- no bundled build step
+- No bundled build step
 - OpenSpec remains an optional peer dependency
-- release verification is based on repo tests plus `npm pack --dry-run`, not a custom publish script
+- Release verification is repo tests + `npm pack --dry-run`
 
 ## Recommended installation path
 
