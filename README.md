@@ -118,6 +118,21 @@ company-cc init --user --extras=all
 # Install the doc-governance + git-governance bundle explicitly
 company-cc init --user --extras=doc-defrag-audit,governance-link-drift-audit,git-clean-commit-guard,commit-review-gate
 
+## Governance bundle
+
+If your team wants the full document-governance + commit-governance workflow, install this 4-skill bundle:
+
+```bash
+company-cc init --user --extras=doc-defrag-audit,governance-link-drift-audit,git-clean-commit-guard,commit-review-gate
+```
+
+Included skills:
+- `doc-defrag-audit`
+- `governance-link-drift-audit`
+- `git-clean-commit-guard`
+- `commit-review-gate`
+
+
 # See all available skills and their install status
 company-cc skills list
 
