@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
-import { mkdtemp, readFile, writeFile, mkdir, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, writeFile, mkdir, rm, stat } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { run } from '../src/cli.js';
@@ -216,6 +216,29 @@ test('init --user performs a real isolated install and update restores missing t
   });
 });
 
+test('init --user installs governance hooks and preserves executable mode', async () => {
+  await withTempHome(async (home) => {
+    const claudeDir = join(home, '.claude');
+
+    const initRes = await withEnv({ HOME: home }, () =>
+      captureConsole(() => run(['init', '--user']))
+    );
+    assert.equal(initRes.status, 0, initRes.stderr);
+
+    const gitGate = join(claudeDir, 'hooks', 'git-commit-gate.sh');
+    const docsWatch = join(claudeDir, 'hooks', 'docs-governance-watch.sh');
+    assert.equal(existsSync(gitGate), true);
+    assert.equal(existsSync(docsWatch), true);
+    assert.equal((await stat(gitGate)).mode & 0o777, 0o755);
+
+    const settings = JSON.parse(await readFile(join(claudeDir, 'settings.json'), 'utf8'));
+    const bashHooks = settings.hooks.PreToolUse.find(h => h.matcher === 'Bash');
+    const commands = bashHooks.hooks.map(h => h.command);
+    assert.ok(commands.includes('$HOME/.claude/hooks/git-commit-gate.sh'));
+    assert.ok(commands.includes('$HOME/.claude/hooks/docs-governance-watch.sh'));
+  });
+});
+
 test('init --user --target codex installs shared assets into CODEX_HOME', async () => {
   await withTempHome(async (home) => {
     const codexHome = join(home, '.codex');
@@ -244,6 +267,7 @@ test('init --project installs project CLAUDE.md and update restores it', async (
   await withTempCwd(async (projectDir) => {
     const manifestPath = join(projectDir, MANIFEST_NAMES.claude);
     const claudePath = join(projectDir, 'CLAUDE.md');
+    const workflowPath = join(projectDir, '.github', 'workflows', 'docs-governance.yml');
 
     const initRes = await captureConsole(() =>
       run(['init', '--project'])
@@ -252,6 +276,7 @@ test('init --project installs project CLAUDE.md and update restores it', async (
     assert.equal(initRes.status, 0, initRes.stderr);
     assert.match(initRes.stdout, /Installing project profile/);
     assert.equal(existsSync(claudePath), true);
+    assert.equal(existsSync(workflowPath), true);
     assert.equal(existsSync(manifestPath), true);
 
     const manifest = JSON.parse(await readFile(manifestPath, 'utf8'));
@@ -259,6 +284,7 @@ test('init --project installs project CLAUDE.md and update restores it', async (
     assert.equal(typeof manifest.version, 'string');
     assert.ok(manifest.installed);
     assert.match(manifest.files['CLAUDE.md'].hash, /^sha256:/);
+    assert.match(manifest.files['.github/workflows/docs-governance.yml'].hash, /^sha256:/);
 
     await rm(claudePath);
     assert.equal(existsSync(claudePath), false);
@@ -271,6 +297,7 @@ test('init --project installs project CLAUDE.md and update restores it', async (
     assert.match(updateRes.stdout, /Updating project profile/);
     assert.match(updateRes.stdout, /created\s+CLAUDE\.md/);
     assert.equal(existsSync(claudePath), true);
+    assert.equal(existsSync(workflowPath), true);
   });
 });
 

@@ -4,13 +4,13 @@ Company-wide AI coding harness. One install gives every engineer a consistent se
 
 ## Status
 
-**v0.4.2** — production-ready for internal distribution.
+**v0.5.0** — production-ready for internal distribution.
 
 What's shipped:
 - Full install / update / uninstall / rollback lifecycle, manifest-tracked per target
 - 44 skills across 6 groups — install by group, by name, or all at once; `skills list` / `skills remove` for day-to-day management
 - 9 shared rules (coding principles, code style, security, error handling, observability, commit conventions, testing, API design, data access)
-- Guard hooks with audit logging on `Bash` and `Write|Edit|MultiEdit`
+- Guard hooks with audit logging on `Bash` and `Write|Edit|MultiEdit`, including hard git commit hygiene gates and warning-only docs governance watch
 - `ci` command + `--json` output on `doctor`, `status`, and `ci` for CI wrappers
 - Team overlay layer and custom target adapters via `.company-cc.json`
 - Interactive `init` (no flags needed), fine-grained `--extras` selection, pre-0.3.0 manifest migration
@@ -199,7 +199,7 @@ for Codex by default) and skipped on update unless you pass `--force`. New templ
 | Layer | Content |
 |---|---|
 | **Shared** (`templates/shared/`) | 9 global rules installed for both Claude and Codex targets |
-| **Claude-only** (`templates/claude-user/`, `templates/claude-project/`) | `CLAUDE.md`, slash commands, agents, settings, MCP stub, hooks |
+| **Claude-only** (`templates/claude-user/`, `templates/claude-project/`) | `CLAUDE.md`, slash commands, agents, settings, MCP stub, hooks, and a docs-governance GitHub Actions workflow |
 | **Codex-only** (`templates/codex-user/`, `templates/codex-project/`) | `AGENTS.md` user and project scaffolds |
 | **Extras** (`templates/extra/`) | 44 skills in 6 groups: **core**, **review**, **workflow**, **design**, **ops**, **dx** — install by group or skill name via `--extras` |
 

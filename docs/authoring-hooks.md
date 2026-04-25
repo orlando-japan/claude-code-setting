@@ -21,14 +21,16 @@ The hook receives the full tool input as a JSON string on stdin. It must parse t
 
 ## Hook types
 
-Currently two hooks ship:
+Currently four hooks ship:
 
 | File | Matcher | Purpose |
 |---|---|---|
 | `guard-bash.sh` | `Bash` | Blocks a short list of high-confidence destructive shell patterns |
+| `git-commit-gate.sh` | `Bash` | Hard-blocks blanket staging, empty commits, secret/key material, and obvious junk in staged commits |
+| `docs-governance-watch.sh` | `Bash` | Warning-only governance watcher when docs are part of a commit or push |
 | `guard-edit.sh` | `Write\|Edit\|MultiEdit` | Blocks writes to secret files, `.git/`, `.ssh/`, `.gnupg/` |
 
-These are safety nets, not the primary access control — `settings.json` permissions are the first gate. Hooks exist to catch patterns that slip through permission wildcards.
+These are safety nets, not the primary access control — `settings.json` permissions are the first gate. Hooks exist to catch patterns that slip through permission wildcards. Some hooks are intentionally hard-blocking (`guard-bash.sh`, `git-commit-gate.sh`), while governance-oriented checks can be warning-only (`docs-governance-watch.sh`).
 
 ## Writing a hook
 

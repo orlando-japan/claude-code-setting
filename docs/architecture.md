@@ -52,7 +52,7 @@ The shared/provider split is intentional:
 | Layer | Purpose |
 |---|---|
 | Shared rules | Always-relevant engineering defaults (always installed) |
-| Claude adapter | `CLAUDE.md`, commands, agents, hooks, settings, MCP stub |
+| Claude adapter | `CLAUDE.md`, commands, agents, hooks, settings, MCP stub, and a project-level docs governance workflow |
 | Codex adapter | `AGENTS.md` user/project entry files |
 | Extra skills | 44 opt-in playbooks in 6 groups — install by group or skill name via `--extras`; manage with `skills list/remove` |
 

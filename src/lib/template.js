@@ -1,4 +1,4 @@
-import { readdir, readFile, writeFile, mkdir, unlink } from 'node:fs/promises';
+import { readdir, readFile, writeFile, mkdir, unlink, chmod, stat } from 'node:fs/promises';
 import { dirname, join, relative, sep } from 'node:path';
 import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -81,6 +81,14 @@ export async function writeManifest(destRoot, manifestName, manifest) {
  * - unchanged: file existed and already matches new template
  * - skipped-modified: file existed and user had edited it; left alone unless opts.force
  */
+async function mirrorExecutableMode(src, dest, relPath) {
+  const srcStat = await stat(src);
+  const isHookScript = relPath.startsWith('hooks/') && relPath.endsWith('.sh');
+  if (isHookScript || (srcStat.mode & 0o111)) {
+    await chmod(dest, 0o755);
+  }
+}
+
 export async function applyTemplateFile(srcRoot, destRoot, relPath, manifest, opts = {}) {
   const src = join(srcRoot, relPath);
   const dest = join(destRoot, relPath);
@@ -93,6 +101,7 @@ export async function applyTemplateFile(srcRoot, destRoot, relPath, manifest, op
     if (opts.dryRun) return 'created';
     await mkdir(dirname(dest), { recursive: true });
     await writeFile(dest, srcBuf);
+    await mirrorExecutableMode(src, dest, relPath);
     manifest.files[relPath] = { hash: srcHash, source: srcRoot };
     return 'created';
   }
@@ -113,6 +122,7 @@ export async function applyTemplateFile(srcRoot, destRoot, relPath, manifest, op
 
   if (opts.dryRun) return 'updated';
   await writeFile(dest, srcBuf);
+  await mirrorExecutableMode(src, dest, relPath);
   manifest.files[relPath] = { hash: srcHash, source: srcRoot };
   return 'updated';
 }
