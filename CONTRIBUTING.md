@@ -62,6 +62,13 @@ Bump the package version intentionally when user-facing behavior changes, especi
 - new shipped rules / skills / hooks
 - manifest semantics changes
 
+## Release notes policy
+
+- Update `CHANGELOG.md` before creating a GitHub release.
+- Treat the matching changelog section as the canonical release note source.
+- GitHub release notes should be copied or lightly adapted from `CHANGELOG.md`, not rewritten from scratch.
+- If the changelog and GitHub release body disagree, fix the release body to match the changelog.
+
 ## Pull request checklist
 
 - [ ] `npm test` passes
