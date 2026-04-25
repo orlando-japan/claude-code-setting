@@ -688,6 +688,23 @@ test('skills list --json emits valid grouped JSON', async () => {
   });
 });
 
+test('can install governance and git gate skills by explicit name', async () => {
+  await withTempHome(async (home) => {
+    await withTempCwd(async () => {
+      const claudeDir = join(home, '.claude');
+
+      const res = await withEnv({ HOME: home }, () =>
+        captureConsole(() => run(['init', '--user', '--extras=doc-defrag-audit,governance-link-drift-audit,git-clean-commit-guard,commit-review-gate']))
+      );
+      assert.equal(res.status, 0, res.stderr);
+      assert.equal(existsSync(join(claudeDir, 'skills', 'doc-defrag-audit', 'SKILL.md')), true);
+      assert.equal(existsSync(join(claudeDir, 'skills', 'governance-link-drift-audit', 'SKILL.md')), true);
+      assert.equal(existsSync(join(claudeDir, 'skills', 'git-clean-commit-guard', 'SKILL.md')), true);
+      assert.equal(existsSync(join(claudeDir, 'skills', 'commit-review-gate', 'SKILL.md')), true);
+    });
+  });
+});
+
 test('skills remove --group=<name> --confirm removes that group', async () => {
   await withTempHome(async (home) => {
     await withTempCwd(async () => {

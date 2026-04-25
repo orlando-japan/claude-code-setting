@@ -4,11 +4,11 @@ Company-wide AI coding harness. One install gives every engineer a consistent se
 
 ## Status
 
-**v0.4.0** — production-ready for internal distribution.
+**v0.4.2** — production-ready for internal distribution.
 
 What's shipped:
 - Full install / update / uninstall / rollback lifecycle, manifest-tracked per target
-- 40 skills across 6 groups — install by group, by name, or all at once; `skills list` / `skills remove` for day-to-day management
+- 44 skills across 6 groups — install by group, by name, or all at once; `skills list` / `skills remove` for day-to-day management
 - 9 shared rules (coding principles, code style, security, error handling, observability, commit conventions, testing, API design, data access)
 - Guard hooks with audit logging on `Bash` and `Write|Edit|MultiEdit`
 - `ci` command + `--json` output on `doctor`, `status`, and `ci` for CI wrappers
@@ -112,8 +112,11 @@ company-cc init --user --extras=review
 # Mix group names and individual skill names
 company-cc init --user --extras=core,code-review,incident-response
 
-# Install all 40 skills across all 6 groups
+# Install all 44 skills across all 6 groups
 company-cc init --user --extras=all
+
+# Install the doc-governance + git-governance bundle explicitly
+company-cc init --user --extras=doc-defrag-audit,governance-link-drift-audit,git-clean-commit-guard,commit-review-gate
 
 # See all available skills and their install status
 company-cc skills list
@@ -183,7 +186,7 @@ for Codex by default) and skipped on update unless you pass `--force`. New templ
 | **Shared** (`templates/shared/`) | 9 global rules installed for both Claude and Codex targets |
 | **Claude-only** (`templates/claude-user/`, `templates/claude-project/`) | `CLAUDE.md`, slash commands, agents, settings, MCP stub, hooks |
 | **Codex-only** (`templates/codex-user/`, `templates/codex-project/`) | `AGENTS.md` user and project scaffolds |
-| **Extras** (`templates/extra/`) | 40 skills in 6 groups: **core**, **review**, **workflow**, **design**, **ops**, **dx** — install by group or skill name via `--extras` |
+| **Extras** (`templates/extra/`) | 44 skills in 6 groups: **core**, **review**, **workflow**, **design**, **ops**, **dx** — install by group or skill name via `--extras` |
 
 ## How to use the harness
 

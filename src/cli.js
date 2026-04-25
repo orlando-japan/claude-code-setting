@@ -34,7 +34,7 @@ Options:
   --project    Install project-level assets to <cwd>
   --extras[=<groups|skills|all>]
                Install opt-in skills. Bare flag = core group (5 skills).
-               =all installs all 40 skills. Use group names (core, review,
+               =all installs all 44 skills. Use group names (core, review,
                workflow, design, ops, dx) or individual skill names, comma-
                separated. Example: --extras=core,code-review
   --force      Overwrite locally modified files (default: skip with warning)

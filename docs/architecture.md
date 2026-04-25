@@ -8,7 +8,7 @@ The repository is split into shared and provider-specific template roots:
 
 ```text
 templates/shared/          shared rules
-templates/extra/           40 opt-in skills in 6 groups (core, review, workflow, design, ops, dx)
+templates/extra/           44 opt-in skills in 6 groups (core, review, workflow, design, ops, dx)
 templates/claude-user/     Claude-specific user assets
 templates/claude-project/  Claude-specific project file
 templates/codex-user/      Codex-specific user assets
@@ -54,7 +54,7 @@ The shared/provider split is intentional:
 | Shared rules | Always-relevant engineering defaults (always installed) |
 | Claude adapter | `CLAUDE.md`, commands, agents, hooks, settings, MCP stub |
 | Codex adapter | `AGENTS.md` user/project entry files |
-| Extra skills | 40 opt-in playbooks in 6 groups — install by group or skill name via `--extras`; manage with `skills list/remove` |
+| Extra skills | 44 opt-in playbooks in 6 groups — install by group or skill name via `--extras`; manage with `skills list/remove` |
 
 This keeps most guidance portable while letting each tool keep its own surface area.
 
