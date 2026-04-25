@@ -39,6 +39,9 @@ async function findFiles(dir, predicate) {
 
 // ─── Skill frontmatter ───────────────────────────────────────────────────────
 
+const VALID_GROUPS = new Set(['core', 'review', 'workflow', 'design', 'ops', 'dx']);
+const VALID_RISKS = new Set(['low', 'medium', 'high']);
+
 test('all SKILL.md files have required frontmatter (name, description, group)', async () => {
   const files = await findFiles(TEMPLATES, n => n === 'SKILL.md');
   assert.ok(files.length > 0, 'should find at least one SKILL.md');
@@ -46,15 +49,30 @@ test('all SKILL.md files have required frontmatter (name, description, group)', 
   const problems = [];
   for (const file of files) {
     const rel = relative(TEMPLATES, file);
+    const dirName = file.split('/').at(-2);
     const content = await readFile(file, 'utf8');
     const fm = parseFrontmatter(content);
     if (!fm) {
       problems.push(`${rel}: missing frontmatter block`);
       continue;
     }
-    if (!fm.name || !fm.name.trim()) problems.push(`${rel}: missing "name"`);
+    if (!fm.name || !fm.name.trim()) {
+      problems.push(`${rel}: missing "name"`);
+    } else if (fm.name.trim() !== dirName) {
+      problems.push(`${rel}: "name" (${fm.name.trim()}) does not match directory name (${dirName})`);
+    }
     if (!fm.description || !fm.description.trim()) problems.push(`${rel}: missing "description"`);
-    if (!fm.group || !fm.group.trim()) problems.push(`${rel}: missing "group" (required for skill grouping)`);
+    if (!fm.category || !fm.category.trim()) problems.push(`${rel}: missing "category"`);
+    if (!fm.group || !fm.group.trim()) {
+      problems.push(`${rel}: missing "group"`);
+    } else if (!VALID_GROUPS.has(fm.group.trim())) {
+      problems.push(`${rel}: "group" must be one of: ${[...VALID_GROUPS].join(', ')} (got "${fm.group.trim()}")`);
+    }
+    if (!fm.risk || !fm.risk.trim()) {
+      problems.push(`${rel}: missing "risk"`);
+    } else if (!VALID_RISKS.has(fm.risk.trim())) {
+      problems.push(`${rel}: "risk" must be one of: ${[...VALID_RISKS].join(', ')} (got "${fm.risk.trim()}")`);
+    }
   }
 
   assert.deepEqual(problems, [], `SKILL.md frontmatter issues:\n${problems.join('\n')}`);
@@ -122,15 +140,11 @@ test('all agent .md files have required frontmatter (name, description, tools, m
 // ─── @rule import resolution ─────────────────────────────────────────────────
 
 test('@rule imports in instruction files resolve to actual template files', async () => {
-  const instructionFiles = [
-    join(TEMPLATES, 'claude-user', 'CLAUDE.md'),
-    join(TEMPLATES, 'codex-user', 'AGENTS.md'),
-  ];
+  const allMdFiles = await findFiles(TEMPLATES, n => n.endsWith('.md'));
   const rulesRoot = join(TEMPLATES, 'shared', 'rules');
   const problems = [];
 
-  for (const filePath of instructionFiles) {
-    if (!existsSync(filePath)) continue;
+  for (const filePath of allMdFiles) {
     const rel = relative(TEMPLATES, filePath);
     const content = await readFile(filePath, 'utf8');
     for (const line of content.split('\n')) {
@@ -165,4 +179,16 @@ test('claude settings.json is valid JSON with required "permissions" key', async
     parsed.permissions && typeof parsed.permissions === 'object',
     'settings.json must have a "permissions" object key',
   );
+
+  for (const key of ['allow', 'deny']) {
+    const list = parsed.permissions[key];
+    assert.ok(Array.isArray(list), `permissions.${key} must be an array`);
+    const empty = list.filter(e => typeof e !== 'string' || !e.trim());
+    assert.deepEqual(empty, [], `permissions.${key} contains non-string or empty entries: ${JSON.stringify(empty)}`);
+  }
+
+  if ('env' in parsed) {
+    assert.strictEqual(typeof parsed.env, 'object', '"env" must be an object if present');
+    assert.ok(!Array.isArray(parsed.env), '"env" must be an object, not an array');
+  }
 });

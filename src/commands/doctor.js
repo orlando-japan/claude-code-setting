@@ -7,6 +7,13 @@ import { getManifestPath, readManifest, getFileRecord } from '../lib/template.js
 import { hashFile } from '../lib/hash.js';
 import { getTargetConfig, parseTargetFlag } from '../lib/targets.js';
 
+const REQUIRED_CLAUDE_SECTIONS = [
+  { prefix: '## 1.', label: 'What this project is' },
+  { prefix: '## 2.', label: 'How to run and verify' },
+  { prefix: '## 4.', label: 'Current priorities' },
+  { prefix: '## 6.', label: 'Guardrails / do-not-touch' },
+];
+
 export async function doctor(flags) {
   const targets = parseTargetFlag(flags.target, flags._customTargets);
   const json = !!flags.json;
@@ -116,15 +123,27 @@ export async function doctor(flags) {
     }
 
     const record = getFileRecord(manifest, instructionFile);
+    let isStub = false;
     if (record) {
       const diskHash = await hashFile(filePath);
       if (diskHash === record.hash) {
         stub(`${target}/project/${instructionFile}`, 'still contains template stubs — fill in sections before using the AI on this repo');
+        isStub = true;
       } else {
         ok(`${target}/project/${instructionFile}`, 'customized');
       }
     } else {
       ok(`${target}/project/${instructionFile}`, 'present');
+    }
+
+    if (!isStub) {
+      const content = await readFile(filePath, 'utf8');
+      const lines = content.split('\n');
+      for (const { prefix, label } of REQUIRED_CLAUDE_SECTIONS) {
+        if (!lines.some(l => l.startsWith(prefix))) {
+          optional(`${target}/project/${instructionFile} — "${label}"`, 'section missing — add it or Claude will lack key context');
+        }
+      }
     }
   }
 
