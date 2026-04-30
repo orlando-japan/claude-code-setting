@@ -1,6 +1,21 @@
 # @company/claude-code-setting
 
-Company-wide AI coding harness. One install gives every engineer a consistent setup: shared rules and skills, plus target-specific Claude Code or Codex profile files.
+> **"Turning AI from a probability engine into a controlled engineering force."**
+
+This is the **AI Engineering Engine** for the Orlando-Japan ecosystem. It provides the core harness, shared rules, and hard enforcements required to maintain architectural integrity across all AI-driven projects.
+
+---
+
+## 🚀 Why this Engine exists? (Core Value Proposition)
+
+In the era of AI coding, the biggest risk is **"Fragmentation & Architecture Drift."** This harness ensures that AI remains a reliable tool rather than a chaotic generator:
+
+1. **Hard Gates (Git Commit Hygiene)**: Physically blocks "dirty" or unreviewed code from entering the repo via automated Git hooks.
+2. **Skill Standardization**: Distributes 44+ curated Skills to ensure every Agent (Sales, Coder, HR) follows identical logic and safety protocols.
+3. **Docs-to-Code Alignment**: Automated audits ensure that PRDs and implementation files never drift apart, maintaining the "Single Source of Truth."
+4. **Zero-Trust Deployment**: Enforces "Least Privilege" and "No Hardcoding" policies at the pre-commit level.
+
+---
 
 ## Status
 
