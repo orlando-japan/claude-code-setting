@@ -77,6 +77,33 @@ function buildCustomTargetConfig(name, def, baseDir) {
     return expanded.startsWith('/') ? expanded : join(baseDir, expanded);
   };
 
+  if (!/^[a-z0-9][a-z0-9-]*$/.test(name)) {
+    throw new Error(`invalid custom target name: ${name}`);
+  }
+  if (def.instructionFile != null && typeof def.instructionFile !== 'string') {
+    throw new Error(`custom target "${name}" has invalid instructionFile`);
+  }
+  if (def.requiredUserFiles != null && !Array.isArray(def.requiredUserFiles)) {
+    throw new Error(`custom target "${name}" has invalid requiredUserFiles`);
+  }
+  if (def.userSrcs != null && !Array.isArray(def.userSrcs)) {
+    throw new Error(`custom target "${name}" has invalid userSrcs`);
+  }
+  if (def.projectSrcs != null && !Array.isArray(def.projectSrcs)) {
+    throw new Error(`custom target "${name}" has invalid projectSrcs`);
+  }
+
+  const userSrcs = (def.userSrcs ?? []).map(resolve).filter(Boolean);
+  const projectSrcs = (def.projectSrcs ?? []).map(resolve).filter(Boolean);
+  if (userSrcs.length === 0 && projectSrcs.length === 0) {
+    throw new Error(`custom target "${name}" must define at least one of userSrcs or projectSrcs`);
+  }
+
+  const requiredProjectSections = normalizeRequiredProjectSections(name, def.requiredProjectSections);
+  if (projectSrcs.length > 0 && requiredProjectSections.length === 0) {
+    throw new Error(`custom target "${name}" defines projectSrcs but no requiredProjectSections governance contract`);
+  }
+
   return {
     target: name,
     displayName: def.displayName ?? name,
@@ -85,10 +112,30 @@ function buildCustomTargetConfig(name, def, baseDir) {
     projectDest: process.cwd(),
     userManifestName: def.userManifestName ?? `.company-cc-${name}-manifest.json`,
     projectManifestName: def.projectManifestName ?? `.company-cc-${name}-manifest.json`,
-    userSrcs: (def.userSrcs ?? []).map(resolve).filter(Boolean),
-    projectSrcs: (def.projectSrcs ?? []).map(resolve).filter(Boolean),
+    userSrcs,
+    projectSrcs,
     requiredUserFiles: def.requiredUserFiles ?? [],
+    requiredProjectSections,
   };
+}
+
+function normalizeRequiredProjectSections(name, sections) {
+  if (sections == null) return [];
+  if (!Array.isArray(sections)) {
+    throw new Error(`custom target "${name}" has invalid requiredProjectSections`);
+  }
+  return sections.map((section, index) => {
+    if (typeof section === 'string' && section.trim()) {
+      return { prefix: section, label: section };
+    }
+    if (section && typeof section === 'object' && typeof section.prefix === 'string' && section.prefix.trim()) {
+      return {
+        prefix: section.prefix,
+        label: typeof section.label === 'string' && section.label.trim() ? section.label : section.prefix,
+      };
+    }
+    throw new Error(`custom target "${name}" has invalid requiredProjectSections[${index}]`);
+  });
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────

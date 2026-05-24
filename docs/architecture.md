@@ -2,6 +2,35 @@
 
 `@company/claude-code-setting` is an npm package that installs a curated AI coding harness onto an engineer's machine. It does not run inside Claude Code or Codex; it copies template files into target homes and project roots, writes a manifest, and then gets out of the way.
 
+Navigation note:
+- Product entrypoint: `../README.md`
+- Documentation Home: `README.md`
+- Target semantics authority: `authoring-targets.md`
+
+This file is the **technical architecture source of truth** for lifecycle and internal execution flow.
+
+## Mental model
+
+Treat the package as a small control plane for AI coding environments:
+
+- **target adapter layer** → Claude / Codex / custom targets define where files go and which entry files matter
+- **runner layer** → template files are copied with safe-overwrite semantics and manifest tracking
+- **governance payload layer** → rules, skills, hooks, commands, and instruction files become the installed surface area
+
+For maintainers, the implementation is now also intentionally split into:
+
+1. **plan**
+   - `src/lib/profile-plans.js`
+   - decides which target/profile combinations should run for `init` and `update`
+2. **runner**
+   - `src/lib/profile-runner.js`
+   - applies template sources, tracks counts, and finalizes manifest metadata
+3. **cleanup**
+   - `src/lib/update-cleanup.js`
+   - handles update-only post-processing such as removing stale skills after extras selection changes
+
+This split keeps command orchestration thinner and makes planning, application, and cleanup independently testable.
+
 ## Target model
 
 The repository is split into shared and provider-specific template roots:
@@ -57,6 +86,50 @@ The shared/provider split is intentional:
 | Extra skills | 44 opt-in playbooks in 6 groups — install by group or skill name via `--extras`; manage with `skills list/remove` |
 
 This keeps most guidance portable while letting each tool keep its own surface area.
+
+## Install/update execution flow
+
+At a high level:
+
+```text
+CLI command
+  -> target/profile plan builder
+  -> per-profile runner
+  -> optional update cleanup
+  -> manifest + lifecycle output
+```
+
+### `init`
+- resolves target scope and install scope (`user`, `project`, or both)
+- resolves extras selection
+- builds install plans
+- runs each plan through the shared runner
+- makes hook scripts executable when needed
+
+### `update`
+- discovers existing manifests for selected targets
+- rebuilds per-profile update plans
+- rehydrates extras selection, including legacy manifest migration
+- runs each plan through the shared runner
+- performs cleanup for stale skills when extras narrow
+- writes updated manifest metadata and preserves rollback safety
+
+### `explain`
+- exposes plan output for `init` and `update` without mutating files
+- exposes file provenance for tracked files via `explain path <relPath>`
+- reuses real manifest / source / plan objects instead of a parallel explanation model
+
+### lifecycle `--json`
+- `init`, `update`, `rollback`, and `uninstall` now emit machine-readable summaries
+- `doctor`, `status`, `ci`, and `verify-release` form the audit / operator JSON surface
+- JSON mode must stay quiet at the runner layer so structured output is never polluted by text logs
+
+### `verify-release`
+- gives operators one formal pre-release gate instead of ad hoc shell ritual
+- runs `node src/cli.js --help` as a CLI entrypoint smoke check
+- runs `npm test --silent`
+- runs `npm pack --dry-run --json`
+- checks that required product/docs entry files are actually present in the tarball
 
 ## Safe-overwrite via manifest
 

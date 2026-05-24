@@ -6,13 +6,7 @@ import { log } from '../lib/log.js';
 import { getManifestPath, readManifest, getFileRecord } from '../lib/template.js';
 import { hashFile } from '../lib/hash.js';
 import { getTargetConfig, parseTargetFlag } from '../lib/targets.js';
-
-const REQUIRED_CLAUDE_SECTIONS = [
-  { prefix: '## 1.', label: 'What this project is' },
-  { prefix: '## 2.', label: 'How to run and verify' },
-  { prefix: '## 4.', label: 'Current priorities' },
-  { prefix: '## 6.', label: 'Guardrails / do-not-touch' },
-];
+import { findMissingProjectSections } from '../lib/project-checks.js';
 
 export async function doctor(flags) {
   const targets = parseTargetFlag(flags.target, flags._customTargets);
@@ -138,11 +132,12 @@ export async function doctor(flags) {
 
     if (!isStub) {
       const content = await readFile(filePath, 'utf8');
-      const lines = content.split('\n');
-      for (const { prefix, label } of REQUIRED_CLAUDE_SECTIONS) {
-        if (!lines.some(l => l.startsWith(prefix))) {
-          optional(`${target}/project/${instructionFile} — "${label}"`, 'section missing — add it or Claude will lack key context');
-        }
+      const missingSections = findMissingProjectSections(content, target, flags._customTargets);
+      for (const { label } of missingSections) {
+        optional(
+          `${target}/project/${instructionFile} — "${label}"`,
+          `section missing — add it or ${cfg.displayName} will lack key project context`
+        );
       }
     }
   }

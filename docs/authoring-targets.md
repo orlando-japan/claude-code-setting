@@ -2,6 +2,39 @@
 
 The harness ships with two built-in targets: `claude` (Claude Code) and `codex` (OpenAI Codex). Custom target adapters let you extend the harness for other AI coding tools — Cursor, Aider, Gemini CLI, or anything else — without modifying the core package.
 
+Navigation note:
+- Product entrypoint: `../README.md`
+- Documentation Home: `README.md`
+- Technical architecture truth: `architecture.md`
+
+This file is the **source of truth for target semantics**.
+
+## Built-in target philosophy
+
+The harness ships with two built-in targets:
+- `claude` → a richer target with Claude-specific user assets such as settings, commands, hooks, and agents
+- `codex` → a lightweight target centered on `AGENTS.md` plus shared rules
+
+Important design rule:
+
+> The goal is **governance parity, not file-tree parity**.
+
+That means Claude and Codex should share the same core rules and lifecycle (`init` / `update` / `doctor` / `ci` / `rollback`), while still keeping target-specific entry files and runtime assumptions.
+
+In the current implementation, target adapters feed a shared control plane:
+- **plan** decides which target/profile combinations should run
+- **runner** applies template files and finalizes manifests
+- **cleanup** handles update-only aftercare such as stale-skill removal
+
+So when you author a new target, think of it as supplying target-specific inputs to a shared lifecycle, not as creating a separate installer.
+
+For Codex specifically, the minimum bar is:
+- user profile installed with shared rules + `AGENTS.md`
+- project `AGENTS.md` present and customized
+- `doctor` / `ci` able to check the minimum required project sections
+
+The goal is not to clone Claude's richer runtime assets into Codex unless Codex has a real mechanism to consume them.
+
 ## How it works
 
 The harness reads `.company-cc.json` from your home directory (for user-profile installs) and your project root (for project-profile installs). Any `targets` key found there is registered as a custom target, available to all `company-cc` commands via `--target <name>`.
@@ -19,7 +52,11 @@ The harness reads `.company-cc.json` from your home directory (for user-profile 
       "userSrcs": ["./cursor-templates/shared", "./cursor-templates/user"],
       "projectSrcs": ["./cursor-templates/project"],
       "instructionFile": ".cursorrules",
-      "requiredUserFiles": [".cursorrules"]
+      "requiredUserFiles": [".cursorrules"],
+      "requiredProjectSections": [
+        { "prefix": "## 1.", "label": "What this project is" },
+        { "prefix": "## 2.", "label": "How to run and verify" }
+      ]
     }
   }
 }
@@ -37,6 +74,18 @@ The harness reads `.company-cc.json` from your home directory (for user-profile 
 | `projectSrcs` | yes | — | Paths to template directories for project-profile files. |
 | `instructionFile` | no | `AGENTS.md` | Filename of the project instruction file (used by `doctor` and `ci`) |
 | `requiredUserFiles` | no | `[]` | Paths that `doctor` will flag as fatal if missing from `userDest` |
+| `requiredProjectSections` | conditionally required | `[]` | Required when `projectSrcs` is non-empty. Section contract used by `doctor`/`ci` to verify the customized project instruction file. Accepts strings or `{ prefix, label }` objects. |
+
+## Minimum governance contract
+
+If a custom target defines `projectSrcs`, it must also define `requiredProjectSections`.
+
+That is the minimum governance contract for project targets:
+- the harness can install the target's project instruction file
+- `doctor` can warn when key sections are missing
+- `ci` can fail when the customized project file is structurally incomplete
+
+Without that contract, a custom target is only “installable”, not “governable”, and the CLI now rejects the config.
 
 ## Template directory structure
 
@@ -78,7 +127,11 @@ For team-wide distribution, publish an npm package that embeds the target defini
         "userDest": "~/.cursor",
         "userSrcs": ["templates/user"],
         "projectSrcs": ["templates/project"],
-        "instructionFile": ".cursorrules"
+        "instructionFile": ".cursorrules",
+        "requiredProjectSections": [
+          { "prefix": "## 1.", "label": "What this project is" },
+          { "prefix": "## 2.", "label": "How to run and verify" }
+        ]
       }
     }
   }

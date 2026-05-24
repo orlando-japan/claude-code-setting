@@ -1,22 +1,20 @@
 import { join } from 'node:path';
 import { homedir } from 'node:os';
-import { readFile, chmod } from 'node:fs/promises';
+import { chmod } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
 import prompts from 'prompts';
 import { log } from '../lib/log.js';
 import { loadOverlays } from '../lib/config.js';
 import { listTemplateFiles as walkTree } from '../lib/template.js';
 import {
   TEMPLATES_ROOT,
-  listTemplateFiles,
   readManifest,
-  writeManifest,
-  applyTemplateFile,
   ensureWritable,
 } from '../lib/template.js';
-import { getTargetConfig, parseTargetFlag } from '../lib/targets.js';
-import { listAllSkills, resolveSkillNames, buildCatalog, filterSkillFiles } from '../lib/skills.js';
+import { listAllSkills, buildCatalog } from '../lib/skills.js';
+import { resolveExtras } from '../lib/extras.js';
+import { buildInitPlans } from '../lib/profile-plans.js';
+import { applyProfileSources, finalizeProfileManifest, formatCounts } from '../lib/profile-runner.js';
 
 async function promptForInitFlags(flags) {
   if (!process.stdin.isTTY) return;
@@ -84,54 +82,34 @@ async function promptForInitFlags(flags) {
   }
 }
 
-async function resolveExtras(extrasFlag) {
-  const skillsDir = join(TEMPLATES_ROOT, 'extra', 'skills');
-  if (!existsSync(skillsDir)) {
-    log.warn('extras directory not found in package, skipping');
-    return null;
-  }
-
-  // '' means user went through interactive prompt and deselected everything
-  if (extrasFlag === '' || extrasFlag === false) return [];
-
-  // Translate special sentinels before passing to resolveSkillNames
-  let selection;
-  if (extrasFlag === undefined || extrasFlag === null || extrasFlag === true) {
-    selection = 'core'; // bare --extras or no flag → default to core group
-  } else if (extrasFlag === 'all') {
-    selection = true;   // --extras=all → install everything
-  } else {
-    selection = extrasFlag; // group names, skill names, or mixed
-  }
-
-  return resolveSkillNames(selection, skillsDir);
-}
-
-
 export async function init(flags) {
   const isDefaultCall = !flags.user && !flags.project && flags.extras === undefined && !flags.target;
   if (isDefaultCall) await promptForInitFlags(flags);
 
-  const doUser = flags.user || (!flags.user && !flags.project);
-  const doProject = flags.project || (!flags.user && !flags.project);
-  const targets = parseTargetFlag(flags.target, flags._customTargets);
+  const json = !!flags.json;
   const selectedExtras = await resolveExtras(flags.extras);
 
   const userOverlays = await loadOverlays(homedir());
   const projectOverlays = await loadOverlays(process.cwd());
+  const plans = buildInitPlans({ flags, selectedExtras, userOverlays, projectOverlays });
+  const profiles = [];
 
-  for (const target of targets) {
-    const cfg = getTargetConfig(target, flags._customTargets);
-    if (doUser) {
-      const srcRoots = [...cfg.userSrcs];
-      if (selectedExtras) srcRoots.push(join(TEMPLATES_ROOT, 'extra'));
-      srcRoots.push(...userOverlays);
-      await installProfile(target, 'user', srcRoots, cfg.userDest, cfg.userManifestName, flags, selectedExtras);
-    }
-    if (doProject) {
-      const srcRoots = [...cfg.projectSrcs, ...projectOverlays];
-      await installProfile(target, 'project', srcRoots, cfg.projectDest, cfg.projectManifestName, flags, null);
-    }
+  for (const plan of plans) {
+    profiles.push(await installProfile(plan, flags));
+  }
+
+  if (json) {
+    console.log(JSON.stringify({
+      ok: true,
+      command: 'init',
+      targets: [...new Set(plans.map(plan => plan.target))],
+      profiles,
+      warnings: [],
+      summary: {
+        profileCount: profiles.length,
+      },
+    }, null, 2));
+    return;
   }
 
   log.step('Next steps');
@@ -141,48 +119,56 @@ export async function init(flags) {
   log.dim('  3. Run `company-cc doctor` to verify');
 }
 
-async function installProfile(target, name, srcRoots, destRoot, manifestName, flags, selectedExtras) {
-  const label = target === 'claude' ? `${name} profile` : `${target} ${name} profile`;
-  log.step(`Installing ${label} → ${destRoot}`);
+async function installProfile(plan, flags) {
+  const { target, profileName, srcRoots, destRoot, manifestName, selectedExtras } = plan;
+  const label = target === 'claude' ? `${profileName} profile` : `${target} ${profileName} profile`;
+  const json = !!flags.json;
+  if (!json) log.step(`Installing ${label} → ${destRoot}`);
   if (!flags['dry-run']) await ensureWritable(destRoot);
   const manifest = await readManifest(destRoot, manifestName);
 
-  const extraDir = join(TEMPLATES_ROOT, 'extra');
-  const counts = { created: 0, updated: 0, unchanged: 0, 'skipped-modified': 0 };
-  for (const srcRoot of srcRoots) {
-    const allFiles = await listTemplateFiles(srcRoot);
-    const files = (selectedExtras && srcRoot === extraDir)
-      ? filterSkillFiles(allFiles, selectedExtras)
-      : allFiles;
-    for (const rel of files) {
-      const result = await applyTemplateFile(srcRoot, destRoot, rel, manifest, {
-        force: flags.force,
-        dryRun: flags['dry-run'],
-      });
-      counts[result]++;
-      if (result === 'skipped-modified') {
-        log.warn(`skipped (locally modified): ${rel}`);
-      } else if (result === 'created' || result === 'updated') {
-        log.ok(`${result.padEnd(9)} ${rel}`);
-      }
-    }
-  }
+  const counts = await applyProfileSources({
+    srcRoots,
+    destRoot,
+    manifest,
+    selectedExtras,
+    force: flags.force,
+    dryRun: flags['dry-run'],
+    skippedModifiedMessage: 'skipped (locally modified): ',
+    quiet: json,
+  });
 
-  manifest.version = await getPackageVersion();
-  manifest.installed = new Date().toISOString();
-  manifest.target = target;
-  if (name === 'user' && selectedExtras !== null) {
-    manifest.extras = selectedExtras;
-  }
+  await finalizeProfileManifest({
+    manifest,
+    target,
+    profileName,
+    selectedExtras,
+    destRoot,
+    manifestName,
+    dryRun: flags['dry-run'],
+  });
+
   if (!flags['dry-run']) {
-    await writeManifest(destRoot, manifestName, manifest);
     await makeHooksExecutable(destRoot);
   }
 
-  log.info(
-    `${counts.created} created, ${counts.updated} updated, ` +
-      `${counts.unchanged} unchanged, ${counts['skipped-modified']} skipped`
-  );
+  if (!json) log.info(formatCounts(counts));
+
+  return {
+    target,
+    profile: profileName,
+    dest: destRoot,
+    manifestName,
+    dryRun: !!flags['dry-run'],
+    selectedExtras,
+    counts: {
+      created: counts.created,
+      updated: counts.updated,
+      unchanged: counts.unchanged,
+      skippedModified: counts['skipped-modified'],
+      removed: 0,
+    },
+  };
 }
 
 async function makeHooksExecutable(destRoot) {
@@ -196,8 +182,3 @@ async function makeHooksExecutable(destRoot) {
   }
 }
 
-async function getPackageVersion() {
-  const pkgPath = fileURLToPath(new URL('../../package.json', import.meta.url));
-  const pkg = JSON.parse(await readFile(pkgPath, 'utf8'));
-  return pkg.version;
-}

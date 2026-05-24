@@ -1,6 +1,6 @@
 {
   "name": "@company/claude-code-setting",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "Company-wide AI coding harness: shared rules and skills, plus Claude Code and Codex profile templates.",
   "type": "module",
   "bin": {
@@ -11,6 +11,7 @@
     "templates",
     "docs",
     "README.md",
+    "README.zh-CN.md",
     "LICENSE"
   ],
   "scripts": {

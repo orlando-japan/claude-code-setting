@@ -22,6 +22,7 @@
 ## 2. How to run and verify
 
 > Replace this with the real commands. If a command does not exist, say so explicitly.
+> This section is required for Codex target completeness checks.
 
 ```bash
 # install
@@ -34,10 +35,12 @@
 ## 3. Important paths
 
 > List only the paths Codex should care about first.
+> This section is required so Codex can quickly anchor on the repo's real working surface.
 
 ## 4. Current priorities
 
 > What matters right now?
+> This section is required so Codex does not optimize for stale or generic priorities.
 
 ## 5. Repo-specific conventions
 
@@ -46,6 +49,7 @@
 ## 6. Guardrails / do-not-touch
 
 > Name files, directories, or boundaries that require extra caution.
+> This section is required for Codex target completeness checks.
 
 ## 7. Known pitfalls
 

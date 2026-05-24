@@ -8,8 +8,10 @@ import { getTargetConfig, parseTargetFlag } from '../lib/targets.js';
 export async function uninstall(flags) {
   const targets = parseTargetFlag(flags.target, flags._customTargets);
   const dryRun = !flags.confirm;
+  const json = !!flags.json;
+  const results = [];
 
-  if (dryRun) {
+  if (dryRun && !json) {
     log.info('Dry-run — pass --confirm to actually remove files\n');
   }
 
@@ -26,40 +28,77 @@ export async function uninstall(flags) {
       if (!existsSync(manifestPath)) continue;
 
       const label = target === 'claude' ? `${name} profile` : `${target} ${name} profile`;
-      log.step(`${dryRun ? '[dry-run] ' : ''}Uninstalling ${label} — ${dest}`);
+      if (!json) log.step(`${dryRun ? '[dry-run] ' : ''}Uninstalling ${label} — ${dest}`);
 
       const manifest = await readManifest(dest, manifestName);
       const trackedFiles = Object.keys(manifest.files || {}).sort().reverse();
 
       const removedDirs = new Set();
+      const files = [];
+      let removedCount = 0;
+      let alreadyGoneCount = 0;
 
       for (const relPath of trackedFiles) {
         const full = join(dest, relPath);
         if (!existsSync(full)) {
-          log.dim(`  already gone: ${relPath}`);
+          if (!json) log.dim(`  already gone: ${relPath}`);
+          files.push({ path: relPath, action: 'already-gone' });
+          alreadyGoneCount++;
           continue;
         }
         if (dryRun) {
-          log.info(`  would remove: ${relPath}`);
+          if (!json) log.info(`  would remove: ${relPath}`);
+          files.push({ path: relPath, action: 'would-remove' });
         } else {
           await unlink(full);
-          log.ok(`  removed: ${relPath}`);
+          if (!json) log.ok(`  removed: ${relPath}`);
+          files.push({ path: relPath, action: 'removed' });
+          removedCount++;
           removedDirs.add(dirname(full));
         }
       }
 
+      let manifestRemoved = false;
       if (dryRun) {
-        log.info(`  would remove: ${manifestName}`);
+        if (!json) log.info(`  would remove: ${manifestName}`);
       } else {
-        // remove empty parent dirs (deepest first, already sorted reversed)
         for (const dir of [...removedDirs].sort((a, b) => b.length - a.length)) {
           if (dir === dest) continue;
           try { await rmdir(dir); } catch { /* not empty, skip */ }
         }
         await unlink(manifestPath);
-        log.ok(`  removed: ${manifestName}`);
-        log.info(`Uninstall complete. Run \`company-cc init\` to reinstall.`);
+        manifestRemoved = true;
+        if (!json) {
+          log.ok(`  removed: ${manifestName}`);
+          log.info(`Uninstall complete. Run \`company-cc init\` to reinstall.`);
+        }
       }
+
+      results.push({
+        target,
+        profile: name,
+        dest,
+        manifestName,
+        dryRun,
+        files,
+        summary: {
+          trackedCount: trackedFiles.length,
+          removedCount,
+          alreadyGoneCount,
+          manifestRemoved,
+        },
+      });
     }
+  }
+
+  if (json) {
+    console.log(JSON.stringify({
+      ok: true,
+      command: 'uninstall',
+      targets,
+      profiles: results,
+      warnings: [],
+      summary: { profileCount: results.length },
+    }, null, 2));
   }
 }

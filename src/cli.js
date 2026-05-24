@@ -11,23 +11,28 @@ import { uninstall } from './commands/uninstall.js';
 import { ci } from './commands/ci.js';
 import { rollback } from './commands/rollback.js';
 import { skills } from './commands/skills.js';
+import { explain } from './commands/explain.js';
+import { verifyRelease } from './commands/verify-release.js';
 import { log } from './lib/log.js';
 import { loadCustomTargets } from './lib/config.js';
 
 export const USAGE = `company-cc — AI coding harness installer
 
 Usage:
-  company-cc init [--user] [--project] [--extras] [--force] [--target <claude|codex|both>]
-  company-cc update [--dry-run] [--force] [--target <claude|codex|both>]
+  company-cc init [--user] [--project] [--extras] [--force] [--target <claude|codex|both>] [--json]
+  company-cc update [--dry-run] [--force] [--target <claude|codex|both>] [--json]
   company-cc doctor [--target <claude|codex|both>] [--json]
   company-cc status [--target <claude|codex|both>] [--json]
   company-cc diff <path> [--target <claude|codex>]
   company-cc restore <path> [--target <claude|codex>] [--force]
-  company-cc uninstall [--target <claude|codex|both>] [--confirm]
-  company-cc rollback [--target <claude|codex|both>] [--confirm] [--list]
+  company-cc uninstall [--target <claude|codex|both>] [--confirm] [--json]
+  company-cc rollback [--target <claude|codex|both>] [--confirm] [--list] [--json]
   company-cc skills list              List all available skills by group
   company-cc skills remove <name…>   Remove installed skills by name or --group
   company-cc ci [--target <claude|codex|both>] [--json]
+  company-cc explain <init|update> [--target <claude|codex|both>] [--json]
+  company-cc explain path <relPath> [--target <claude|codex|both>] [--json]
+  company-cc verify-release [--json]
 
 Options:
   --user       Install user-level assets to the selected target home
@@ -47,16 +52,18 @@ Options:
 `;
 
 const VALID_FLAGS = {
-  init:      new Set(['user', 'project', 'extras', 'force', 'target', 'dry-run']),
-  update:    new Set(['force', 'target', 'dry-run']),
+  init:      new Set(['user', 'project', 'extras', 'force', 'target', 'dry-run', 'json']),
+  update:    new Set(['force', 'target', 'dry-run', 'json']),
   doctor:    new Set(['target', 'json']),
   status:    new Set(['target', 'json']),
   ci:        new Set(['target', 'json']),
   diff:      new Set(['target']),
   restore:   new Set(['target', 'force']),
-  uninstall: new Set(['target', 'confirm']),
-  rollback:  new Set(['target', 'confirm', 'list']),
+  uninstall: new Set(['target', 'confirm', 'json']),
+  rollback:  new Set(['target', 'confirm', 'list', 'json']),
   skills:    new Set(['target', 'group', 'confirm', 'json', 'force']),
+  explain:   new Set(['user', 'project', 'extras', 'target', 'json']),
+  'verify-release': new Set(['json']),
 };
 
 export function parseFlags(argv) {
@@ -107,9 +114,8 @@ export async function run(argv = process.argv.slice(2)) {
     }
   }
 
-  flags._customTargets = await loadCustomTargets([homedir(), process.cwd()]).catch(() => ({}));
-
   try {
+    flags._customTargets = await loadCustomTargets([homedir(), process.cwd()]);
     switch (cmd) {
       case 'init':
         await init(flags);
@@ -137,6 +143,10 @@ export async function run(argv = process.argv.slice(2)) {
         return await skills(flags, positional);
       case 'ci':
         return await ci(flags);
+      case 'explain':
+        return await explain(flags, positional);
+      case 'verify-release':
+        return await verifyRelease(flags);
       default:
         log.error(`Unknown command: ${cmd}`);
         console.log(USAGE);

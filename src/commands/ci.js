@@ -1,9 +1,11 @@
 import { existsSync } from 'node:fs';
+import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { log } from '../lib/log.js';
 import { getManifestPath, readManifest, getFileRecord } from '../lib/template.js';
 import { hashFile } from '../lib/hash.js';
 import { getTargetConfig, parseTargetFlag } from '../lib/targets.js';
+import { findMissingProjectSections } from '../lib/project-checks.js';
 
 export async function ci(flags) {
   const targets = parseTargetFlag(flags.target, flags._customTargets);
@@ -45,7 +47,17 @@ export async function ci(flags) {
       }
     }
 
-    if (!json) log.ok(`${label}: ${instructionFile} is present and customized`);
+    const content = await readFile(filePath, 'utf8');
+    const missingSections = findMissingProjectSections(content, target, flags._customTargets);
+    if (missingSections.length > 0) {
+      const detail = missingSections.map(s => s.label).join(', ');
+      if (!json) log.error(`${label}: ${instructionFile} missing required sections — ${detail}`);
+      results.push({ target, status: 'missing-sections', file: instructionFile, missing: missingSections.map(s => s.label) });
+      exitCode = 1;
+      continue;
+    }
+
+    if (!json) log.ok(`${label}: ${instructionFile} is present, customized, and structurally complete`);
     results.push({ target, status: 'ok', file: instructionFile });
   }
 

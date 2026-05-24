@@ -2,6 +2,18 @@
 
 > **"Turning AI from a probability engine into a controlled engineering force."**
 
+Languages:
+- English: `README.md`
+- 简体中文: `README.zh-CN.md`
+
+Docs hub:
+- English docs home: `docs/README.md`
+- 中文文档首页: `docs/README.zh-CN.md`
+- Architecture: `docs/architecture.md`
+- Target authoring: `docs/authoring-targets.md`
+
+If you want the fastest orientation path, start with the docs home for your language first.
+
 This is the **AI Engineering Engine** for the Orlando-Japan ecosystem. It provides the core harness, shared rules, and hard enforcements required to maintain architectural integrity across all AI-driven projects.
 
 ---
@@ -19,14 +31,16 @@ In the era of AI coding, the biggest risk is **"Fragmentation & Architecture Dri
 
 ## Status
 
-**v0.5.0** — production-ready for internal distribution.
+**v0.6.0** — production-ready for internal distribution.
 
 What's shipped:
 - Full install / update / uninstall / rollback lifecycle, manifest-tracked per target
 - 44 skills across 6 groups — install by group, by name, or all at once; `skills list` / `skills remove` for day-to-day management
 - 9 shared rules (coding principles, code style, security, error handling, observability, commit conventions, testing, API design, data access)
 - Guard hooks with audit logging on `Bash` and `Write|Edit|MultiEdit`, including hard git commit hygiene gates and warning-only docs governance watch
-- `ci` command + `--json` output on `doctor`, `status`, and `ci` for CI wrappers
+- `explain` command for plan/provenance introspection (`explain init`, `explain update`, `explain path <relPath>`)
+- `verify-release` command for operator-ready pre-release checks (`node src/cli.js --help` + `npm test` + `npm pack --dry-run` + packaged-doc presence)
+- `--json` output across lifecycle and audit surfaces: `init`, `update`, `rollback`, `uninstall`, `doctor`, `status`, `ci`, and `verify-release`
 - Team overlay layer and custom target adapters via `.company-cc.json`
 - Interactive `init` (no flags needed), fine-grained `--extras` selection, pre-0.3.0 manifest migration
 
@@ -34,6 +48,26 @@ Still intentionally lightweight:
 - No bundled build step
 - OpenSpec remains an optional peer dependency
 - Release verification is repo tests + `npm pack --dry-run`
+
+## Product model
+
+This package is easiest to understand as a small product with three layers:
+
+1. **Target adapters**
+   - Claude and Codex each have their own entry files and runtime assumptions.
+2. **Shared control plane**
+   - install / update / doctor / status / rollback / ci all operate through the same manifest-driven lifecycle.
+3. **Governance payload**
+   - shared rules, optional skills, hooks, commands, and project instruction files.
+4. **Explain / inspection surface**
+   - `explain`, `status`, `diff`, and `restore` make manifest state and file provenance visible instead of implicit.
+
+Inside the installer, the control flow is now intentionally split into:
+- **plan** → decide which target/profile combinations should run
+- **runner** → apply template sources and finalize manifests
+- **cleanup** → perform update-only post-processing such as removing stale skills
+
+That split matters because it keeps target planning, file application, and cleanup logic independently testable and easier to evolve.
 
 ## Recommended installation path
 
@@ -160,6 +194,13 @@ company-cc doctor
 # Show every tracked file and its state (unchanged / locally-modified / missing)
 company-cc status
 
+# Explain which profiles would run for init/update
+company-cc explain init --target codex --json
+company-cc explain update
+
+# Explain where a tracked file came from and what update would do
+company-cc explain path rules/code-style.md
+
 # Show a unified diff between your local copy and the template version
 company-cc diff rules/code-style.md
 
@@ -184,10 +225,19 @@ company-cc rollback --confirm
 # CI check: exits non-zero if project instruction file is missing or still a stub
 company-cc ci
 
-# Machine-readable output for CI wrappers
+# Operator-ready release verification
+company-cc verify-release
+company-cc verify-release --json
+
+# Machine-readable output for CI wrappers / automation
+company-cc init --json
+company-cc update --json
+company-cc rollback --json
+company-cc uninstall --json
 company-cc doctor --json
 company-cc status --json
 company-cc ci --json
+company-cc verify-release --json
 ```
 
 Files you've edited yourself are detected via SHA-256 in a target-specific manifest
@@ -239,6 +289,27 @@ This means commit hygiene is enforced locally, while document governance is auto
 | **Codex-only** (`templates/codex-user/`, `templates/codex-project/`) | `AGENTS.md` user and project scaffolds |
 | **Extras** (`templates/extra/`) | 44 skills in 6 groups: **core**, **review**, **workflow**, **design**, **ops**, **dx** — install by group or skill name via `--extras` |
 
+### Codex minimum completion standard
+
+Codex is intentionally a **lightweight target**, not a reduced-quality target.
+
+Minimum bar for calling a Codex install "complete":
+- user profile installed with shared rules plus `AGENTS.md`
+- project `AGENTS.md` present and customized
+- `doctor --target codex` can verify the install
+- `ci --target codex` can confirm the project `AGENTS.md` is not a stub and includes the required minimum sections:
+  - `What this project is`
+  - `How to run and verify`
+  - `Important paths`
+  - `Current priorities`
+  - `Guardrails / do-not-touch`
+
+What this does **not** mean:
+- Codex does **not** need to mirror Claude's richer runtime assets
+- Codex does **not** need a Claude-style `settings.json`, hook set, or command bundle unless Codex has a real mechanism to consume them
+
+The target philosophy is: **governance parity, not file-tree parity**.
+
 ## How to use the harness
 
 Once installed, the harness loads automatically every time you start Claude Code. Day-to-day use falls into three modes.
@@ -287,6 +358,18 @@ The `CLAUDE.md` default is **Opus for planning, Sonnet for execution** — use `
 2. Run a small task ("add a unit test for function X") and confirm the response stays short and surgical.
 3. Try `/commit-smart` on a real diff to see the commit-message flow.
 4. Save the spec flow for your next actual feature, not a warm-up task.
+
+## Documentation map
+
+Use these entrypoints depending on what you need:
+
+| Need | Read first |
+|---|---|
+| Understand the package as a product | `docs/README.md` |
+| Understand install/update internals | `docs/architecture.md` |
+| Understand Claude vs Codex vs custom targets | `docs/authoring-targets.md` |
+| Understand skill/rule/overlay authoring | `docs/authoring-skills.md`, `docs/authoring-rules.md`, `docs/authoring-overlays.md` |
+| Understand the Codex minimum completion bar | `docs/codex-target-minimum-completion-checklist.md` |
 
 ## Development
 

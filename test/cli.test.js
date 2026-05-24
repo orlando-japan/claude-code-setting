@@ -335,6 +335,43 @@ test('init --project --target codex installs project AGENTS.md and update restor
   });
 });
 
+test('init --json emits valid JSON with profile counts', async () => {
+  await withTempHome(async (home) => {
+    await withTempCwd(async () => {
+      const res = await withEnv({ HOME: home }, () =>
+        captureConsole(() => run(['init', '--user', '--json']))
+      );
+      assert.equal(res.status, 0, res.stderr);
+      const parsed = JSON.parse(res.stdout);
+      assert.equal(parsed.command, 'init');
+      assert.ok(Array.isArray(parsed.profiles));
+      assert.equal(parsed.profiles[0].profile, 'user');
+      assert.ok(typeof parsed.profiles[0].counts.created === 'number');
+      assert.equal(parsed.profiles[0].counts.removed, 0);
+    });
+  });
+});
+
+test('update --json emits valid JSON with backup and cleanup info', async () => {
+  await withTempHome(async (home) => {
+    await withTempCwd(async () => {
+      await withEnv({ HOME: home }, () => captureConsole(() => run(['init', '--user'])));
+
+      const res = await withEnv({ HOME: home }, () =>
+        captureConsole(() => run(['update', '--json']))
+      );
+      assert.equal(res.status, 0, res.stderr);
+      const parsed = JSON.parse(res.stdout);
+      assert.equal(parsed.command, 'update');
+      assert.ok(Array.isArray(parsed.profiles));
+      assert.equal(parsed.profiles[0].profile, 'user');
+      assert.ok('backup' in parsed.profiles[0]);
+      assert.ok('cleanup' in parsed.profiles[0]);
+      assert.ok(typeof parsed.profiles[0].counts.unchanged === 'number');
+    });
+  });
+});
+
 test('status shows unchanged files after clean install', async () => {
   await withTempHome(async (home) => {
     await withTempCwd(async () => {
@@ -457,6 +494,24 @@ test('uninstall --confirm removes tracked files and manifest', async () => {
       assert.match(res.stdout, /removed/);
       assert.equal(existsSync(join(claudeDir, 'CLAUDE.md')), false);
       assert.equal(existsSync(manifestPath), false);
+    });
+  });
+});
+
+test('uninstall --json emits valid JSON in dry-run mode', async () => {
+  await withTempHome(async (home) => {
+    await withTempCwd(async () => {
+      await withEnv({ HOME: home }, () => captureConsole(() => run(['init', '--user'])));
+
+      const res = await withEnv({ HOME: home }, () =>
+        captureConsole(() => run(['uninstall', '--json']))
+      );
+      assert.equal(res.status, 0, res.stderr);
+      const parsed = JSON.parse(res.stdout);
+      assert.equal(parsed.command, 'uninstall');
+      assert.ok(Array.isArray(parsed.profiles));
+      assert.equal(parsed.profiles[0].dryRun, true);
+      assert.ok(parsed.profiles[0].files.some(f => f.action === 'would-remove'));
     });
   });
 });
@@ -847,7 +902,16 @@ test('ci exits 0 when project file is customized', async () => {
   await withTempHome(async (home) => {
     await withTempCwd(async (cwd) => {
       await withEnv({ HOME: home }, () => captureConsole(() => run(['init', '--project'])));
-      await writeFile(join(cwd, 'CLAUDE.md'), '# My Project\n\nCustom content.\n');
+      await writeFile(join(cwd, 'CLAUDE.md'), [
+        '## 1. What this project is',
+        'Custom content.',
+        '## 2. How to run and verify',
+        'Run tests.',
+        '## 4. Current priorities',
+        'Ship safely.',
+        '## 6. Guardrails / do-not-touch',
+        'Do not break production.',
+      ].join('\n'));
 
       const res = await withEnv({ HOME: home }, () =>
         captureConsole(() => run(['ci']))
@@ -862,7 +926,16 @@ test('ci --json emits valid JSON', async () => {
   await withTempHome(async (home) => {
     await withTempCwd(async (cwd) => {
       await withEnv({ HOME: home }, () => captureConsole(() => run(['init', '--project'])));
-      await writeFile(join(cwd, 'CLAUDE.md'), '# My Project\n\nCustom content.\n');
+      await writeFile(join(cwd, 'CLAUDE.md'), [
+        '## 1. What this project is',
+        'Custom content.',
+        '## 2. How to run and verify',
+        'Run tests.',
+        '## 4. Current priorities',
+        'Ship safely.',
+        '## 6. Guardrails / do-not-touch',
+        'Do not break production.',
+      ].join('\n'));
 
       const res = await withEnv({ HOME: home }, () =>
         captureConsole(() => run(['ci', '--json']))
@@ -873,6 +946,56 @@ test('ci --json emits valid JSON', async () => {
       assert.equal(parsed.exitCode, 0);
       assert.ok(Array.isArray(parsed.results));
       assert.equal(parsed.results[0].status, 'ok');
+    });
+  });
+});
+
+test('doctor warns when codex project AGENTS.md is customized but missing required sections', async () => {
+  await withTempHome(async (home) => {
+    await withTempCwd(async (cwd) => {
+      await withEnv({ HOME: home }, () => captureConsole(() => run(['init', '--project', '--target', 'codex'])));
+      await writeFile(join(cwd, 'AGENTS.md'), '# Codex Project\n\nCustom content only.\n');
+
+      const res = await withEnv({ HOME: home, PATH: '' }, () =>
+        captureConsole(() => run(['doctor', '--target', 'codex']))
+      );
+
+      assert.equal(res.status, 0, res.stderr);
+      assert.match(res.stdout, /codex\/project\/AGENTS\.md — "How to run and verify"/);
+      assert.match(res.stdout, /codex\/project\/AGENTS\.md — "Important paths"/);
+      assert.match(res.stdout, /codex\/project\/AGENTS\.md — "Current priorities"/);
+      assert.match(res.stdout, /codex\/project\/AGENTS\.md — "Guardrails \/ do-not-touch"/);
+    });
+  });
+});
+
+test('ci exits 1 when codex project AGENTS.md is customized but missing required sections', async () => {
+  await withTempHome(async (home) => {
+    await withTempCwd(async (cwd) => {
+      await withEnv({ HOME: home }, () => captureConsole(() => run(['init', '--project', '--target', 'codex'])));
+      await writeFile(join(cwd, 'AGENTS.md'), '# Codex Project\n\nCustom content only.\n');
+
+      const res = await withEnv({ HOME: home }, () =>
+        captureConsole(() => run(['ci', '--target', 'codex']))
+      );
+      assert.equal(res.status, 1);
+      assert.match(res.stderr, /missing required sections/);
+      assert.match(res.stderr, /How to run and verify/);
+    });
+  });
+});
+
+test('ci exits 0 when codex project AGENTS.md is customized and structurally complete', async () => {
+  await withTempHome(async (home) => {
+    await withTempCwd(async (cwd) => {
+      await withEnv({ HOME: home }, () => captureConsole(() => run(['init', '--project', '--target', 'codex'])));
+      await writeFile(join(cwd, 'AGENTS.md'), `# Codex Project\n\n## 1. What this project is\n- Internal CLI harness\n\n## 2. How to run and verify\n\n\`\`\`bash\nnpm test\n\`\`\`\n\n## 3. Important paths\n- src/\n- test/\n\n## 4. Current priorities\n- stabilize codex target\n\n## 5. Repo-specific conventions\n- keep changes surgical\n\n## 6. Guardrails / do-not-touch\n- do not bypass hooks\n\n## 7. Known pitfalls\n- TODO\n`);
+
+      const res = await withEnv({ HOME: home }, () =>
+        captureConsole(() => run(['ci', '--target', 'codex']))
+      );
+      assert.equal(res.status, 0, res.stderr);
+      assert.match(res.stdout, /structurally complete/);
     });
   });
 });
@@ -960,6 +1083,73 @@ test('custom target: init --target custom installs files to custom userDest', as
       ));
       assert.equal(manifest.target, 'myai');
       assert.match(manifest.files['rules/myai-style.md'].hash, /^sha256:/);
+    });
+  });
+});
+
+test('custom target: project targets require a governance contract for required sections', async () => {
+  await withTempHome(async (home) => {
+    await withTempCwd(async () => {
+      const projectTemplates = join(home, 'myai-project');
+      await mkdir(projectTemplates, { recursive: true });
+      await writeFile(join(projectTemplates, 'MYAI.md'), '# My AI project\n');
+
+      await writeFile(join(home, '.company-cc.json'), JSON.stringify({
+        targets: {
+          myai: {
+            displayName: 'My AI Tool',
+            instructionFile: 'MYAI.md',
+            projectSrcs: ['./myai-project'],
+          },
+        },
+      }));
+
+      const res = await withEnv({ HOME: home }, () =>
+        captureConsole(() => run(['init', '--project', '--target', 'myai']))
+      );
+      assert.equal(res.status, 1);
+      assert.match(res.stderr, /defines projectSrcs but no requiredProjectSections governance contract/);
+    });
+  });
+});
+
+test('custom target: ci enforces required project sections when configured', async () => {
+  await withTempHome(async (home) => {
+    await withTempCwd(async (cwd) => {
+      const projectTemplates = join(home, 'myai-project');
+      await mkdir(projectTemplates, { recursive: true });
+      await writeFile(join(projectTemplates, 'MYAI.md'), '## 1. What this project is\n## 2. How to run and verify\n');
+
+      await writeFile(join(home, '.company-cc.json'), JSON.stringify({
+        targets: {
+          myai: {
+            displayName: 'My AI Tool',
+            instructionFile: 'MYAI.md',
+            projectSrcs: ['./myai-project'],
+            requiredProjectSections: [
+              { prefix: '## 1.', label: 'What this project is' },
+              { prefix: '## 2.', label: 'How to run and verify' },
+              { prefix: '## 3.', label: 'Important paths' },
+            ],
+          },
+        },
+      }));
+
+      let res = await withEnv({ HOME: home }, () =>
+        captureConsole(() => run(['init', '--project', '--target', 'myai']))
+      );
+      assert.equal(res.status, 0, res.stderr);
+
+      await writeFile(join(cwd, 'MYAI.md'), '## 1. What this project is\nCustomized\n## 2. How to run and verify\nCustomized\n');
+
+      res = await withEnv({ HOME: home }, () =>
+        captureConsole(() => run(['ci', '--target', 'myai', '--json']))
+      );
+      assert.equal(res.status, 1);
+      const payload = JSON.parse(res.stdout);
+      assert.equal(payload.exitCode, 1);
+      assert.equal(payload.results[0].status, 'missing-sections');
+      assert.deepEqual(payload.results[0].missing, ['Important paths']);
     });
   });
 });
@@ -1070,6 +1260,25 @@ test('rollback warns when no backups exist', async () => {
       );
       assert.equal(res.status, 0);
       assert.match(res.stdout, /no backups found/);
+    });
+  });
+});
+
+test('rollback --json emits valid JSON in dry-run mode', async () => {
+  await withTempHome(async (home) => {
+    await withTempCwd(async () => {
+      await withEnv({ HOME: home }, () => captureConsole(() => run(['init', '--user'])));
+      await withEnv({ HOME: home }, () => captureConsole(() => run(['update'])));
+
+      const res = await withEnv({ HOME: home }, () =>
+        captureConsole(() => run(['rollback', '--json']))
+      );
+      assert.equal(res.status, 0, res.stderr);
+      const parsed = JSON.parse(res.stdout);
+      assert.equal(parsed.command, 'rollback');
+      assert.equal(parsed.mode, 'dry-run');
+      assert.ok(Array.isArray(parsed.profiles));
+      assert.ok(Array.isArray(parsed.profiles[0].restoredFiles));
     });
   });
 });

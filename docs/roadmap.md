@@ -104,6 +104,21 @@ company-cc status --json
 
 Alias or subcommand that exits non-zero when the project-level instruction file is missing or its manifest is stale. Designed to run as a CI step on repos that have adopted the harness.
 
+### `verify-release` operator gate ✓
+
+A formal pre-release entrypoint for maintainers / operators:
+
+```bash
+company-cc verify-release
+company-cc verify-release --json
+```
+
+Current minimum gate:
+- CLI help smoke (`node src/cli.js --help`)
+- `npm test --silent`
+- `npm pack --dry-run --json`
+- required packaged docs / product entry files are present in the tarball
+
 ---
 
 ## Phase 3 — Extensibility
